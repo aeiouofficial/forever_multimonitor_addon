@@ -1,3 +1,24 @@
+## [0.3.5] - 2026-11-06
+
+### Added
+- Added a 15-second reversible layout preview in the in-game dashboard with an explicit `Keep layout` confirmation.
+- Unconfirmed previews restore the prior disabled state. Confirmed previews invalidate stale timers so they cannot later disable a kept layout.
+- Added runtime tests for timeout rollback, Keep confirmation, stale timer invalidation and slash-command interaction.
+
+### Changed
+- `/fmm enable`, `/fmm disable`, `/fmm apply` and `/fmm reset` now cancel or confirm an active preview rather than allowing a stale timer to override the user's explicit command.
+- Bumped addon version and TOC metadata to `0.3.5`.
+- Updated setup, feature-parity and test documentation.
+
+### Verification
+- `python tools/runtime_regression.py`: PASS, including 15-second preview rollback/Keep and slash-command invalidation.
+- `node tools/regression.js`: 51 source regression assertions passed.
+- `node tools/validate.js`: PASS.
+- `git diff --check`: PASS.
+
+### Remaining limitations
+- Preview behavior is Lua 5.1 simulated; its visual presentation and real client timer behavior still require an in-client Forever test.
+
 ## [0.3.4] - 2026-11-06
 
 ### Added

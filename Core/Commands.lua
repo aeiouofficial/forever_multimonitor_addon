@@ -49,20 +49,29 @@ function Addon:HandleCommand(message)
     elseif command == "status" then
         printStatus()
     elseif command == "enable" then
+        if self.Options then self.Options:CancelPreview(false) end
         self:SetEnabled(true)
+        if self.Options then self.Options:Refresh() end
         self:Print("Dual-monitor layout enabled.")
     elseif command == "disable" then
+        if self.Options then self.Options:CancelPreview(false) end
         self:SetEnabled(false)
+        if self.Options then self.Options:Refresh() end
         self:Print("Dual-monitor layout disabled.")
     elseif command == "apply" then
         if not self.db.enabled then
             self:Print("Layout is disabled. Use /fmm enable first.")
+        elseif self.Options and self.Options.previewActive then
+            self.Options:KeepPreview()
+            self:Print("Layout preview confirmed.")
         else
             self:Apply()
             self:Print("Layout apply requested.")
         end
     elseif command == "reset" then
+        if self.Options then self.Options:CancelPreview(false) end
         self:SetEnabled(false)
+        if self.Options then self.Options:Refresh() end
         self:Print("Layout disabled; viewport and supported panels restored.")
     elseif command == "side" then
         value = value:lower()

@@ -66,6 +66,67 @@ function Options:Refresh()
     else
         self.status:SetText("Layout unavailable: " .. tostring(err))
     end
+    if self.previewButton and self.keepPreviewButton then
+        if self.previewActive then
+            self.previewButton:Hide()
+            self.keepPreviewButton:Show()
+        else
+            self.previewButton:Show()
+            self.keepPreviewButton:Hide()
+        end
+    end
+end
+
+function Options:CancelPreview(restorePrevious)
+    if not self.previewActive then return false end
+    local wasEnabled = self.previewWasEnabled
+    self.previewGeneration = (self.previewGeneration or 0) + 1
+    self.previewActive = false
+    self.previewWasEnabled = nil
+    if self.previewButton then self.previewButton:Show() end
+    if self.keepPreviewButton then self.keepPreviewButton:Hide() end
+    if restorePrevious and not wasEnabled and Addon.db and Addon.db.enabled then
+        Addon:SetEnabled(false)
+    end
+    if self.frame then self:Refresh() end
+    return true
+end
+
+function Options:StartPreview()
+    if self.previewActive then return false end
+    if not C_Timer or type(C_Timer.After) ~= "function" then
+        Addon:Print("Preview unavailable: client timer API is missing.")
+        return false
+    end
+    self.previewGeneration = (self.previewGeneration or 0) + 1
+    local generation = self.previewGeneration
+    self.previewWasEnabled = Addon.db and Addon.db.enabled == true or false
+    self.previewActive = true
+    if not Addon.db.enabled then Addon:SetEnabled(true) else Addon:Apply() end
+    self:Refresh()
+    self.status:SetText("PREVIEW ACTIVE - confirm within 15 seconds or it will revert.")
+    C_Timer.After(15, function()
+        if not self.previewActive or self.previewGeneration ~= generation then return end
+        local restoreDisabled = not self.previewWasEnabled
+        self:CancelPreview(false)
+        if restoreDisabled then Addon:SetEnabled(false) end
+        self:Refresh()
+        Addon:Print("Preview expired; previous layout state restored.")
+    end)
+    return true
+end
+
+function Options:KeepPreview()
+    if not self.previewActive then return false end
+    self.previewGeneration = (self.previewGeneration or 0) + 1
+    self.previewActive = false
+    self.previewWasEnabled = nil
+    if self.previewButton then self.previewButton:Show() end
+    if self.keepPreviewButton then self.keepPreviewButton:Hide() end
+    if Addon.db and not Addon.db.enabled then Addon:SetEnabled(true) else Addon:Apply() end
+    self:Refresh()
+    Addon:Print("Layout preview confirmed.")
+    return true
 end
 
 local WIZARD_STEPS = {
@@ -135,6 +196,7 @@ function Options:RefreshWizard()
 end
 
 function Options:ShowWizard()
+    self:CancelPreview(true)
     if not self.wizard then
         local wizard = CreateFrame("Frame", nil, self.frame)
         wizard:SetPoint("TOPLEFT", 18, -52)
@@ -214,6 +276,7 @@ function Options:Create()
     self.status = makeText(frame, "", 11)
     self.status:SetPoint("TOPLEFT", 22, -48)
     self.enabledButton = makeButton(frame, "Enable layout", 150, 30, function()
+        self:CancelPreview(false)
         Addon:SetEnabled(not Addon.db.enabled)
         self:Refresh()
     end)
@@ -276,10 +339,21 @@ function Options:Create()
     self.rawMouseButton:SetPoint("BOTTOMLEFT", 22, 58)
     self.wizardButton = makeButton(frame, "Setup wizard", 120, 28, function() self:ShowWizard() end)
     self.wizardButton:SetPoint("BOTTOMLEFT", 184, 58)
-    self.applyButton = makeButton(frame, "Apply", 90, 28, function() Addon:Apply(); self:Refresh() end)
+    self.applyButton = makeButton(frame, "Apply / Keep", 90, 28, function()
+        if self.previewActive then self:KeepPreview() else Addon:Apply(); self:Refresh() end
+    end)
     self.applyButton:SetPoint("BOTTOMRIGHT", -122, 58)
-    self.resetButton = makeButton(frame, "Reset", 90, 28, function() Addon:SetEnabled(false); self:Refresh() end)
+    self.resetButton = makeButton(frame, "Reset", 90, 28, function()
+        self:CancelPreview(false)
+        Addon:SetEnabled(false)
+        self:Refresh()
+    end)
     self.resetButton:SetPoint("BOTTOMRIGHT", -22, 58)
+    self.previewButton = makeButton(frame, "Preview 15s", 100, 28, function() self:StartPreview() end)
+    self.previewButton:SetPoint("BOTTOMLEFT", 22, 94)
+    self.keepPreviewButton = makeButton(frame, "Keep layout", 110, 28, function() self:KeepPreview() end)
+    self.keepPreviewButton:SetPoint("BOTTOMLEFT", 132, 94)
+    self.keepPreviewButton:Hide()
     local footer = makeText(frame, "/fmm commands remain available. Native monitor control requires WindowsHelper.", 10)
     footer:SetPoint("BOTTOMLEFT", 22, 28)
     self.frame = frame

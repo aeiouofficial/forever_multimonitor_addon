@@ -2,7 +2,7 @@
 
 A standalone, companion-free multi-monitor workspace for **World of Warcraft: Forever**. The project is an independent implementation of the public user-facing Offhand workflow; it does not copy Offhand source or implement its Companion process/protocol.
 
-> **Development status: 0.3.4.** The addon core, basic in-game settings window and Windows helper with one-shot placement plus opt-in hotplug watch are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
+> **Development status: 0.3.5.** The addon core, basic in-game settings window and Windows helper with one-shot placement plus opt-in hotplug watch are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
 
 ## Target client
 
@@ -27,7 +27,7 @@ The TOC interface number is a load contract, not proof of API behavior. Protecte
 - Panel scaling is constrained by the actual Offhand workspace and canvas height, even when that requires going below the preferred scale setting.
 - Supported panel visibility lifecycle: `OnShow` routes into the workspace; `OnHide` restores original anchors and scale. Show/hide changes share a keyed desired-state operation so combat-deferred work converges on the latest visibility state.
 - Raw-mouse CVar save/enable/restore, including logout recovery.
-- In-game settings window and a three-step guided setup wizard covering native-window preparation, Mainhand side/width configuration and layout activation: `/fmm config`.
+- In-game settings window, three-step guided setup wizard and a 15-second reversible layout preview with explicit Keep confirmation: `/fmm config`.
 
 ### Windows helper
 
@@ -49,7 +49,7 @@ The helper makes the native window cover the selected displays. The addon then u
 | Panel visibility lifecycle | Show routes; hide restores original anchors/scale; combat deferral coalesces latest visibility state | Lua 5.1 runtime simulation; live panel tests pending |
 | Drag-position persistence | Normalized per-character save/reapply for supported native drag-stop events | Lua 5.1 runtime simulation; panel-specific live tests pending |
 | Raw mouse | Original `rawMouseEnable` value is saved and restored | Lua 5.1 runtime simulation; live input test pending |
-| In-game options | Enable, side, width, seam, scale, raw mouse, named profiles, apply/reset and a three-step setup wizard with Mainhand controls and activation | Lua 5.1 runtime simulation; in-client visual/input test pending |
+| In-game options | Enable, side, width, seam, scale, raw mouse, named profiles, three-step setup wizard, 15-second preview/rollback and Keep confirmation | Lua 5.1 runtime simulation; in-client visual/input test pending |
 | Windows display enumeration | Device names/IDs, bounds, primary flag and DPI | Built helper; enumerated connected displays on the development PC |
 | Native window placement | One-shot placement, borderless styles, explicit restore and optional hotplug watch with safe fallback | .NET build and pure self-test; live WoW placement/hotplug tests pending |
 | Named profiles | Create, load, save, delete; legacy settings migrate to protected `Default` profile | Lua 5.1 runtime simulation; live UI/reload test pending |
@@ -120,7 +120,7 @@ python tools/runtime_regression.py
 
 `WindowsHelper/build.ps1` builds the native helper. `list` and `self-test` are safe to run during verification; `place` and `watch` are deliberately not run automatically because they change the live WoW window.
 
-At the current checkpoint, 49 source regression assertions, Lua 5.1 syntax parsing and mocked runtime scenarios, including named profile migration/switching, options profile controls and the guided wizard, panel hide/restore/reopen and combat visibility convergence, pass; the Windows helper builds with zero warnings/errors and its display enumeration was exercised. **No WoW client live test or native window place/restore test has been performed.** See [the test matrix](docs/TEST_MATRIX.md) before calling the project release-ready.
+At the current checkpoint, 51 source regression assertions, Lua 5.1 syntax parsing and mocked runtime scenarios, including named profile migration/switching, options profile controls and the guided wizard, panel hide/restore/reopen and combat visibility convergence, pass; the Windows helper builds with zero warnings/errors and its display enumeration was exercised. **No WoW client live test or native window place/restore test has been performed.** See [the test matrix](docs/TEST_MATRIX.md) before calling the project release-ready.
 
 ## Technical boundary
 

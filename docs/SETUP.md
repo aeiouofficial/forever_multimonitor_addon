@@ -67,6 +67,7 @@ Slash-command fallback remains available:
 
 - `/fmm disable` restores the captured in-session viewport and supported panel anchors/scales.
 - `/fmm reset` disables the layout and restores the current session's captured state.
+- **Preview 15s** temporarily enables the layout; click **Keep layout** to confirm. If not confirmed within 15 seconds, the previous disabled state is restored. `/fmm enable`, `/fmm disable`, `/fmm apply` and `/fmm reset` invalidate the pending preview timer so it cannot later override an explicit command.
 - The Windows helper's `restore` command restores the original native WoW window styles and placement.
 - If the in-game UI becomes unusable, use `/reload` or disable the addon at character select.
 - Back up Forever SavedVariables before testing development builds.
