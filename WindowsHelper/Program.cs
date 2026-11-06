@@ -334,7 +334,7 @@ internal static class Program
         var manifest = Path.Combine(full, "ForeverMultiMonitor.toc");
         var runtime = Path.Combine(full, "Core", "RuntimeGeometry.lua");
         if (!IsAddonDirectoryContractSatisfied(raw, File.Exists(manifest), File.Exists(runtime)))
-            throw new DirectoryNotFoundException("--addon-dir must point to an installed ForeverMultiMonitor addon containing the TOC and Core/RuntimeGeometry.lua.");
+            throw new DirectoryNotFoundException("--addon-dir must point to an installed Forever MultiMonitor add-on containing the TOC and Core/RuntimeGeometry.lua.");
         return full;
     }
 

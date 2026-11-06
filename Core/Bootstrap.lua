@@ -11,11 +11,11 @@ namespace.lastError = nil
 namespace.errorGeneration = 0
 
 function namespace:Print(message)
-    local prefix = "|cff79b8ffForeverMultiMonitor|r "
+    local prefix = "|cff79b8ffForever MultiMonitor|r "
     if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
         DEFAULT_CHAT_FRAME:AddMessage(prefix .. tostring(message))
     elseif print then
-        print("ForeverMultiMonitor: " .. tostring(message))
+        print("Forever MultiMonitor: " .. tostring(message))
     end
 end
 

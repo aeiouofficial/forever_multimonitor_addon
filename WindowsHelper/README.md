@@ -10,7 +10,7 @@ Run from the repository root or this directory:
 .\WindowsHelper\build.ps1
 ```
 
-The script directs TEMP/TMP, the .NET CLI home and NuGet cache to `F:\forever_multimonitor_addon\.tmp`. Build output stays under `WindowsHelper\bin`; no third-party packages are used.
+Build output stays under `WindowsHelper\bin`; no third-party packages are used.
 
 ## Commands
 
@@ -47,5 +47,5 @@ If Windows temporarily enumerates zero connected displays, `watch` restores the 
 - The watcher detects selected-display loss by polling. It does not automatically reapply placement when a disconnected display returns; rerun `place` or `watch` after checking `list`.
 - Selected monitor bounds are combined into one rectangular window. Gaps between vertically offset or non-adjacent displays remain part of that rectangle; inspect the coordinates reported by `list` before applying.
 - The helper sets its own process DPI awareness. It does not change WoW's DPI-awareness mode or promise pixel-perfect behavior for every mixed-DPI game-client build.
-- No WoW client window is moved during build or pure self-test. A controlled 2026-11-06 live test explicitly invoked `place` across DISPLAY5 + DISPLAY1 (4480x1080), followed immediately by `restore`. Restore selected the documented primary-screen fallback because the original saved rectangle was not sufficiently visible. The test did not validate WoW's in-game UI or hotplug behavior.
+- The pure self-test checks helper geometry and identity handling without moving a WoW window. `place` and `watch` change the live WoW window; use `restore` before exiting the helper session.
 - The helper exposes the combined Windows canvas to WoW. `/forevermultimonitor config` controls the `MainMonitor`/`SecondMonitor1` layout. A validated two-display handoff is available when explicitly requested, not automatically.

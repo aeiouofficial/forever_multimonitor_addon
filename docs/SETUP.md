@@ -1,14 +1,14 @@
-# standalone setup
+# Forever MultiMonitor Setup
 
 The addon and Windows helper perform different jobs. The helper spans the native game window across selected displays. The addon calls the 3D game view `MainMonitor` and the remaining panel area `SecondMonitor1`.
 
 ## 1. Prepare the game
 
-Install the addon files into the active Forever client's `Interface\AddOns\ForeverMultiMonitor` directory before invoking the optional `--addon-dir` handoff. The handoff accepts an absolute path on any drive and validates that it contains this addon's TOC and `Core/RuntimeGeometry.lua`. Only copy the TOC and `Core` modules, not workspace build or temp folders.
+Install the addon's TOC and `Core` folder directly into the active Forever client's `Interface\AddOns\ForeverMultiMonitor` directory before invoking the optional `--addon-dir` handoff. The handoff accepts an absolute path on any drive and validates that it contains the addon's TOC and `Core/RuntimeGeometry.lua`.
 
 1. Start WoW Forever and use **Windowed** mode (not Windowed Fullscreen).
 2. Arrange the displays in Windows Display Settings as they are physically arranged.
-3. Confirm the display resolution and scaling values. Mixed-DPI arrangements are enumerated by the helper, but pixel-perfect WoW behavior is not yet live-verified.
+3. Confirm the display resolution and scaling values reported by Windows. After applying the layout, check that panels remain readable on each display.
 4. Keep the game in a normal, resizable window before applying placement.
 
 ## 2. Build and inspect the Windows helper
@@ -33,7 +33,7 @@ For normal spanning, select exactly two displays that should form the combined g
 
 `--mainmonitor` selects the display assigned to `MainMonitor`; without it, the helper selects the primary member of the requested display set, or the first display if none is marked primary. `--addon-dir` is an explicit absolute installed-addon path on any drive. Together these options let the helper write versioned monitor geometry. After placement run `/reload`, then `/forevermultimonitor native status` and `/forevermultimonitor native apply`. The addon maps the selected `MainMonitor` and `SecondMonitor1` rectangles independently, including vertical offsets, stacked layouts, mixed resolutions and negative Windows coordinates. Gaps between selected rectangles remain inside the native WoW window and do not become part of either UI rectangle.
 
-For the Beta 17 single-screen 32:9/32:10 workflow, select one display and opt in explicitly:
+For a single-screen 32:9/32:10 layout, select one display and opt in explicitly:
 
 ```powershell
 $addonDir = Read-Host "Absolute path to the installed ForeverMultiMonitor addon folder"
@@ -86,7 +86,6 @@ Slash-command fallback remains available:
 - **Preview 15s** temporarily enables the layout; click **Keep layout** to confirm. If not confirmed within 15 seconds, the previous disabled state is restored. `/forevermultimonitor enable`, `/forevermultimonitor disable`, `/forevermultimonitor apply` and `/forevermultimonitor reset` invalidate the pending preview timer so it cannot later override an explicit command.
 - The Windows helper's `restore` command restores the original native WoW window styles and placement.
 - If the in-game UI becomes unusable, use `/reload` or disable the addon at character select.
-- Back up Forever SavedVariables before testing development builds.
 
 ## Manual fallback
 
@@ -94,4 +93,4 @@ If the helper is not used, place the WoW window manually across the displays or 
 
 ## Limitations
 
-The `place` command is one-shot. The optional foreground `watch` command polls selected display IDs and rolls back when one disappears; it does not automatically reapply when a display reconnects. No service, autostart, GUI selector or external protocol is installed. Versioned, opt-in file-based handoff works via `--addon-dir` and `/reload`. `/forevermultimonitor gather` scans registered panels, `UIPanelWindows` and movable `UIParent` children; it skips protected/forbidden frames, tooltips and WorldFrame, and is also available from the dashboard. Live recovery behavior remains unverified. Forever in-client viewport, combat/taint behavior, protected HUD prompts, broader panel-family lifecycle, minimap/map-size, chat-bubble/popup handling, custom theme colors and full requested behavior coverage remain open. Built-in dashboard themes do not theme in-game Blizzard panels.
+The `place` command is one-shot. The optional foreground `watch` command polls selected display IDs and restores the window if one disappears; it does not automatically reapply when a display reconnects. The helper has no service, autostart, graphical selector, or external protocol. Versioned, opt-in file-based handoff works via `--addon-dir` and `/reload`. `/forevermultimonitor gather` scans registered panels, `UIPanelWindows`, and movable `UIParent` children; it skips protected/forbidden frames, tooltips, and WorldFrame, and is also available from the dashboard. Dashboard themes apply to the settings window and setup wizard, not Blizzard game panels.
