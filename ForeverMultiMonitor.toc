@@ -1,0 +1,19 @@
+## Interface: 16001
+## AllowLoadGameType: camelot
+## Title: Forever MultiMonitor
+## Notes: Companion-free dual-monitor workspace for World of Warcraft: Forever.
+## Author: aeiouofficial
+## Version: 0.1.0
+## LoadSavedVariablesFirst: 1
+## SavedVariables: ForeverMultiMonitorDB
+## SavedVariablesPerCharacter: ForeverMultiMonitorCharDB
+
+Core\Bootstrap.lua
+Core\Compat.lua
+Core\Config.lua
+Core\Geometry.lua
+Core\Viewport.lua
+Core\Panels.lua
+Core\Recovery.lua
+Core\Commands.lua
+Core\Init.lua
