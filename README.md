@@ -10,7 +10,7 @@ The selected behavior contract is package version **2.1.2 Beta 17**, CurseForge 
 
 The inspected package license permits personal, non-commercial in-game use and prohibits redistribution, repackaging, or derivative copies. This project remains independently implemented and does not copy package source or media.
 
-**The requested feature set is incomplete.** The local implementation validates exact physical game/workspace rectangles for offset and stacked displays and has an explicitly selected single-screen ultrawide mode. Remaining gaps include Forever cold-launch SavedVariables recovery; player-confirmed protected Edit Mode fallback/restore prompts; panel-family lifecycle and open-state persistence beyond current routing/default bags; gather coverage for unregistered movable windows and its dashboard button; minimap/map-size and popup/chat-bubble behavior; custom theme colors and cross-character profile copy. The Windows helper is a CLI; it does not provide a graphical display selector, cold-launch bridge, or automatic span workflow.
+**The requested feature set is incomplete.** The local implementation validates exact physical game/workspace rectangles for offset and stacked displays and has an explicitly selected single-screen ultrawide mode. Remaining gaps include Forever cold-launch SavedVariables recovery; player-confirmed protected Edit Mode fallback/restore prompts; broader panel-family lifecycle and open-state persistence beyond current routing/default bags; minimap/map-size and popup/chat-bubble behavior; custom theme colors and cross-character profile copy. The Windows helper is a CLI; it does not provide a graphical display selector, cold-launch bridge, or automatic span workflow.
 
 The installed copy under the live Forever AddOns directory was hash-checked, but the running client has not been restarted or exercised in-game. The game UI automation pipe is unavailable. In-game settings visibility, layout behavior, combat/taint, physical hotplug and mixed-DPI UI verification remain open.
 
@@ -37,6 +37,7 @@ The TOC interface number is a load contract, not proof of API behavior. Protecte
 - Per-character normalized drag positions for supported frames exposing native `OnDragStop`; saved positions are kept inside the active SecondMonitor1 workspace.
 - Panel scaling is constrained by the actual SecondMonitor1 workspace and canvas height, even when that requires going below the preferred scale setting.
 - Supported panel visibility lifecycle: `OnShow` routes into the workspace; `OnHide` restores original anchors and scale. Show/hide changes share a keyed desired-state operation so combat-deferred work converges on the latest visibility state.
+- Gather recovers off-screen registered panels, `UIPanelWindows`, and movable `UIParent` children when their title edge is inaccessible; protected, forbidden, tooltip and world frames are excluded. The action is available from settings and `/forevermultimonitor gather`.
 - Raw-mouse CVar save/enable/restore, including logout recovery; profile-scoped default-map Escape persistence and restoration.
 - In-game settings window registered in the WoW AddOns settings page, also reachable with `/forevermultimonitor config`; includes per-profile Midnight/Indigo/Classic dashboard themes, background opacity from 50% to 100%, a three-step setup wizard and a 15-second reversible preview with explicit Keep confirmation.
 
@@ -59,6 +60,7 @@ The helper spans exactly two selected displays by default and optionally writes 
 | Combat / recovery | Keyed latest-state queue and debounced recovery | Lua 5.1 runtime simulation |
 | Panel visibility lifecycle | Show routes; hide restores original anchors/scale; combat deferral coalesces latest visibility state | Lua 5.1 runtime simulation; live panel tests pending |
 | Drag-position persistence | Normalized per-character save/reapply for supported native drag-stop events | Lua 5.1 runtime simulation; panel-specific live tests pending |
+| Gather off-screen UI | Registry panels, `UIPanelWindows`, and movable `UIParent` children are filtered and moved into MainMonitor | Lua 5.1 runtime simulation; live panel recovery test pending |
 | Raw mouse | Original `rawMouseEnable` value is saved and restored | Lua 5.1 runtime simulation; live input test pending |
 | In-game options | AddOns settings category plus slash openers, enable, side, width, seam, scale, raw mouse, named profiles, setup wizard, preview/rollback, theme presets/opacity and diagnostics | Lua 5.1 legacy/modern registration simulation; real Forever settings page/input test pending |
 | Windows display enumeration | Device names/IDs, bounds, primary flag and DPI | Built helper; enumerated connected displays on the development PC |
@@ -139,7 +141,7 @@ python tools/runtime_regression.py
 
 `WindowsHelper/build.ps1` builds the native helper. `list` and `self-test` are safe to run during verification; `place` and `watch` are deliberately not run automatically because they change the live WoW window.
 
-At the current checkpoint, `node tools/regression.js` passes 64 source assertions; `node tools/validate.js` passes for 17 TOC Lua modules; the Lua 5.1 parser and mocked runtime suite pass, including legacy/modern AddOns category registration/opening, slash aliases, gather filters, geometry rollback and panel lifecycle; the Windows helper Release build has 0 warnings/errors and its self-test passes dual-display, explicit single-ultrawide and zero-display recovery cases. **The addon has NOT passed the in-client test matrix.** The AddOns page entry, slash openers, layout, and gather behavior still need a real Forever client test; physical hotplug and mixed-DPI in-game alignment are unverified. See [the test matrix](docs/TEST_MATRIX.md) and [critical audit](docs/AUDIT_2026-11-06.md) before calling the project release-ready.
+At the current checkpoint, `node tools/regression.js` passes 67 source checks; `node tools/validate.js` passes for 17 TOC Lua modules; the Lua 5.1 parser/runtime suite passes profile and native-handoff migration, branded command registration, settings-category opening, Gather candidate discovery and safety filters, geometry rollback and panel lifecycle; the Windows helper Release build has 0 warnings/errors and its self-test passes two/single-display validation, handoff schema and zero-display recovery. **The addon has not passed the in-client test matrix.** The game has not been restarted since installation, so settings-page visibility, slash openers, layout behavior, combat/taint, physical hotplug and mixed-DPI UI alignment remain unverified. See [the test matrix](docs/TEST_MATRIX.md) and [critical audit](docs/AUDIT_2026-11-06.md) before calling the project release-ready.
 
 ## Technical boundary
 

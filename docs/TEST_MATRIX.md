@@ -7,8 +7,8 @@ Target: WoW Forever launch client `1.60.1.70790`, interface `16001`, game type `
 | Area | Command | Current result |
 |---|---|---|
 | Manifest / Lua structure / workspace restrictions | `node tools/validate.js` | PASS; 17 TOC Lua modules |
-| Source regression assertions | `node tools/regression.js` | PASS; 66 checks, including branded command registration, monitor naming, migration and topology checks |
-| Lua 5.1 syntax and mocked runtime | `.tmp/python312-runtime/python.exe tools/runtime_regression.py` | PASS; all 17 Lua files parsed and all mocked runtime scenarios passed, including profile/native-handoff migration and legacy/modern AddOns category registration/open paths |
+| Source regression assertions | `node tools/regression.js` | PASS; 67 checks, including branded command registration, monitor naming, migration, Gather candidates and topology checks |
+| Lua 5.1 syntax and mocked runtime | `.tmp/python312-runtime/python.exe tools/runtime_regression.py` | PASS; all 17 Lua files parsed and all mocked runtime scenarios passed, including profile/native-handoff migration, Gather candidate sources and legacy/modern AddOns category registration/open paths |
 | Windows helper compile | `dotnet build WindowsHelper/ForeverMultiMonitor.WindowsHelper.csproj --configuration Release --no-restore` | PASS; .NET 10 Release build, 0 warnings / 0 errors |
 | Windows helper self-test | `WindowsHelper.exe self-test` | PASS; explicit two/single-display selection, zero-display rollback, native handoff schema and absolute addon-path contract |
 | Windows display enumeration | `ForeverMultiMonitor.WindowsHelper.exe list` | PASS on development PC; two displays reported with device IDs, bounds and DPI |
@@ -45,7 +45,7 @@ Native HWND test success is **not** an in-client WorldFrame/UI test. All rows be
 | Combat | Change settings and disable/enable during combat | Latest desired state is applied once after combat |
 | Map | Open/close/reopen World Map | Map is usable in SecondMonitor1 and restores correctly |
 | Panel lifecycle | Open, close and reopen each supported panel; repeat hide/show transitions during combat | Hidden panels restore original anchors/scale; reopened panels route again; after combat only the latest visibility state is applied |
-| Recovery | Put one registered panel and one unregistered movable UIParent child off-screen; run `/forevermultimonitor gather` | Eligible panels are gathered into MainMonitor while protected/forbidden frames, tooltips and WorldFrame remain untouched; current automation covers registered frames only |
+| Recovery | Put a registered panel, a `UIPanelWindows` frame and a movable `UIParent` child off-screen; run `/forevermultimonitor gather` or click the settings button | Eligible windows are gathered into MainMonitor while protected/forbidden frames, tooltips and WorldFrame remain untouched; Lua runtime covers each candidate source |
 | Character | Open/close Character panel | Panel routes and restores correctly |
 | Bags | Open each supported default bag mode | No duplicate, hidden or stuck frames |
 | Replacement bags | Test each supported replacement-bag addon | Replacement frames remain untouched until a dedicated adapter exists |

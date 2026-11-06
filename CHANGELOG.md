@@ -4,6 +4,7 @@
 - Pinned the requested behavior contract to version 2.1.2 Beta 17, package file 9029504, Forever interface 16001 and paired helper compatibility beta.13. The comparison package is not part of this project; no package source or assets were copied.
 - Standardized the public layout names to `MainMonitor` and `SecondMonitor1`. The addon now registers only `/forevermultimonitor`; its settings, help text, tests and setup guides use the same command. The Windows helper's selector is `--mainmonitor`.
 - Migrated saved profile values and older native geometry handoffs to the current field names while retaining existing user settings.
+- Expanded Gather to scan registered panels, `UIPanelWindows`, and movable `UIParent` children with protected/forbidden and tooltip exclusions; added a dashboard button that invokes the same command path.
 - This 0.4.1 implementation remains a partial standalone subset. README records the remaining gaps; local mock/build checks do not establish full live-client acceptance.
 
 ### Fixed
@@ -16,7 +17,7 @@
 - Windows restore visibility is checked against the saved screen rectangle. Fallback is placed with screen-coordinate `SetWindowPos` after restoring `WINDOWPLACEMENT`; frame styles are refreshed on restore. Existing state files without a saved screen rectangle remain restorable through Windows' native placement adjustment.
 
 ### Verification
-- Fresh local verification: 66 source regression checks PASS; structural validator PASS for 17 TOC Lua modules; Lua 5.1 syntax/runtime suite PASS, including profile/native-handoff migration and legacy/modern settings-category mocks; .NET 10 Release build PASS with 0 warnings and 0 errors; helper self-test PASS for two/single-display selection, zero-display rollback, handoff schema and path validation; staged and unstaged `git diff --check` PASS.
+- Fresh local verification: 67 source regression checks PASS; structural validator PASS for 17 TOC Lua modules; Lua 5.1 syntax/runtime suite PASS, including profile/native-handoff migration, all Gather candidate sources, and legacy/modern settings-category mocks; .NET 10 Release build PASS with 0 warnings and 0 errors; helper self-test PASS for two/single-display selection, zero-display rollback, handoff schema and path validation; staged and unstaged `git diff --check` PASS.
 - Real in-client AddOns-page visibility, slash openers, layout behavior, mixed-DPI alignment and physical disconnect/reconnect remain open shipping gates. The live WoW UI automation pipe is unavailable, so the installed addon has not been clicked or exercised in-client.
 
 ## [0.4.1] - 2026-11-06

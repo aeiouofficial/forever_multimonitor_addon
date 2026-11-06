@@ -92,7 +92,7 @@ function Addon:HandleCommand(message)
         elseif moved == false then
             self:Print("Gather skipped during combat.")
         else
-            self:Print(string.format("Gathered %d off-screen panel(s); skipped %d.", moved, skipped or 0))
+            self:Print(string.format("Gathered %d off-screen window(s); skipped %d.", moved, skipped or 0))
         end
     elseif command == "status" then
         printStatus()

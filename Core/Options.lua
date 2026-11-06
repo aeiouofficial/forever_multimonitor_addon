@@ -508,6 +508,10 @@ function Options:Create()
     self.keepPreviewButton = makeButton(frame, "Keep layout", 110, 28, function() self:KeepPreview() end)
     self.keepPreviewButton:SetPoint("BOTTOMLEFT", 132, 94)
     self.keepPreviewButton:Hide()
+    self.gatherButton = makeButton(frame, "Gather off-screen UI", 190, 28, function()
+        if Addon.HandleCommand then Addon:HandleCommand("gather") end
+    end)
+    self.gatherButton:SetPoint("BOTTOMLEFT", 250, 94)
     local footer = makeText(frame, "/forevermultimonitor commands remain available. Native monitor control requires WindowsHelper.", 10)
     footer:SetPoint("BOTTOMLEFT", 22, 28)
     self.frame = frame

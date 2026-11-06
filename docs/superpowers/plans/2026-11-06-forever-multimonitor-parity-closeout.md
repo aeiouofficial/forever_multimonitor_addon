@@ -40,14 +40,14 @@
 - [x] Register the dashboard in the legacy or modern AddOns settings page and verify both category/open paths.
 - [x] Reconcile README, architecture, setup, feature-parity, audit, test matrix, design handoff, and changelog with the implementation and fresh local check outputs.
 - [x] Run Lua runtime regression, source regression, structural validator, .NET Release build, helper self-test and both staged/unstaged `git diff --check`.
-- [ ] Extend Gather beyond registry-owned frames to all Beta 17 eligible panel/movable-child candidates and add the settings-panel Gather button.
-- [x] Refresh the installed package after the naming changes; SHA-256 matches for the TOC and all 17 Lua modules.
+- [x] Extend Gather to `UIPanelWindows` and movable `UIParent` children, fail closed on protected/forbidden frames, and add a settings-page button using the same command path.
+- [x] Refresh the installed package after branding and Gather changes; SHA-256 matches for the TOC and all 17 Lua modules.
 - [ ] Preserve the shipping gate as open until actual Forever in-client behavior and physical monitor disconnect/reconnect are verified.
 
 ## Execution Findings
 
-- The addon TOC and 17 Lua modules were refreshed in the live Forever AddOns folder; all 18 copied file hashes matched the workspace. WoW was already running, so a full restart is needed to load the updated command and settings code.
+- The addon TOC and 17 Lua modules were refreshed in the live Forever AddOns folder; all 18 copied file hashes matched the workspace. WoW was already running, so a full restart is needed to load the updated command, settings, and Gather button.
 - The game process is running, but native UI automation could not attach: the computer-use pipe returned “failed to connect”; no in-game click, slash command or settings-page verification was executed.
 - A physical disconnect / GPU reset cannot be simulated by the local pure self-test. The helper's zero-display branch is verified in-process only.
-- Gather currently operates on registry-owned named routed panels. Beta 17 also scans `UIPanelWindows` and movable `UIParent` children and exposes a settings-page button; that broader recovery path remains open.
+- Gather now considers registry entries, `UIPanelWindows`, and movable `UIParent` children. Lua runtime checks cover the three candidate sources and protected/forbidden/tooltip exclusions; live recovery remains open.
 - The helper does not provide a GUI display selector or cold-launch recovery bridge. Those remain explicit gaps unless implemented and verified in the real client.

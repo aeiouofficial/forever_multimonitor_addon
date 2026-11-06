@@ -1076,6 +1076,7 @@ local function frame(name, left, top, width, height, shown, protected, forbidden
   local value = { name = name, shown = shown ~= false, protected = protected, forbidden = forbidden }
   function value:GetName() return self.name end
   function value:IsShown() return self.shown end
+  function value:IsMovable() return self.movable == true end
   function value:IsProtected() return self.protected == true end
   function value:IsForbidden() return self.forbidden == true end
   function value:GetEffectiveScale() return 1 end
@@ -1097,6 +1098,14 @@ GameTooltip = frame("GameTooltip", -500, 400, 100, 100, true)
 ForeverMultiMonitorCanvas = frame("ForeverMultiMonitorCanvas", -500, 400, 100, 100, true)
 WorldFrame = frame("WorldFrame", -500, 400, 100, 100, true)
 UnregisteredWindow = frame("UnregisteredWindow", -500, 400, 100, 100, true)
+UnregisteredPanel = frame("UnregisteredPanel", -500, 400, 100, 100, true)
+UnregisteredMovable = frame("UnregisteredMovable", -500, 400, 100, 100, true)
+UnregisteredMovable.movable = true
+ProtectedMovable = frame("ProtectedMovable", -500, 400, 100, 100, true, true)
+ProtectedMovable.movable = true
+UIPanelWindows = { UnregisteredPanel = { area = "left" } }
+UIParent.children = { UnregisteredMovable, ProtectedMovable, UnregisteredWindow }
+UIParent.GetChildren = function(self) return unpack(self.children) end
 local oldPlace = ForeverMultiMonitor.Panels.Place
 local placed = {}
 ForeverMultiMonitor.Panels.Place = function(_, target, layout)
@@ -1104,15 +1113,16 @@ ForeverMultiMonitor.Panels.Place = function(_, target, layout)
   return true
 end
 local moved, skipped = ForeverMultiMonitor.Gather:Run()
-assert(moved == 3, "gather must rescue only inaccessible visible registered panels: " .. tostring(moved))
+assert(moved == 5, "gather must rescue inaccessible registered, UIPanelWindows and movable frames: " .. tostring(moved))
 local placedCount = 0
 for target, layout in pairs(placed) do
   placedCount = placedCount + 1
-  assert(target == WorldMapFrame or target == SpellBookFrame or target == QuestLogFrame,
+  assert(target == WorldMapFrame or target == SpellBookFrame or target == QuestLogFrame
+    or target == UnregisteredPanel or target == UnregisteredMovable,
     "gather moved an accessible, hidden, protected, forbidden, tooltip, canvas or unknown frame")
   assert(layout.secondMonitor1 == layout.mainMonitor, "gather did not target the MainMonitor rectangle")
 end
-assert(placedCount == 3, "gather called placement for an ineligible frame")
+assert(placedCount == 5, "gather called placement for an ineligible frame")
 local oldPlaced = placedCount
 ForeverMultiMonitor.Gather:Run()
 placedCount = 0
@@ -1135,7 +1145,7 @@ local messages = {}
 ForeverMultiMonitor.Gather.Run = function() return 2, 1 end
 ForeverMultiMonitor.Print = function(_, message) messages[#messages + 1] = message end
 ForeverMultiMonitor:HandleCommand("gather")
-assert(messages[#messages] == "Gathered 2 off-screen panel(s); skipped 1.", "gather command did not report its result")
+assert(messages[#messages] == "Gathered 2 off-screen window(s); skipped 1.", "gather command did not report its result")
 ForeverMultiMonitor.Gather.Run = oldRun
 ForeverMultiMonitor.Print = oldPrint
 """)
@@ -1190,6 +1200,14 @@ print("PASS Lua 5.1: modern Settings category registration and open path")
 lua.execute("""
 ForeverMultiMonitor:HandleCommand("diagnostics")
 ForeverMultiMonitor.Options:Create()
+local previousHandleCommand = ForeverMultiMonitor.HandleCommand
+local settingsGatherCommand = nil
+ForeverMultiMonitor.HandleCommand = function(_, command) settingsGatherCommand = command end
+assert(ForeverMultiMonitor.Options.gatherButton and ForeverMultiMonitor.Options.gatherButton.scripts.OnClick,
+  "settings-page Gather button is missing its click handler")
+ForeverMultiMonitor.Options.gatherButton.scripts.OnClick()
+assert(settingsGatherCommand == "gather", "settings-page Gather button did not invoke the shared command")
+ForeverMultiMonitor.HandleCommand = previousHandleCommand
 assert(ForeverMultiMonitor.Options.themeButton.label.text == "Theme: Midnight", "default theme label missing")
 ForeverMultiMonitor.Options.themeButton.scripts.OnClick()
 assert(ForeverMultiMonitor.db.profile.themePreset == "indigo" and ForeverMultiMonitor.Options.themeButton.label.text == "Theme: Indigo", "theme cycle did not update profile/UI")
