@@ -3,7 +3,7 @@
 ## Title: Forever MultiMonitor
 ## Notes: Companion-free dual-monitor workspace for World of Warcraft: Forever.
 ## Author: aeiouofficial
-## Version: 0.3.0
+## Version: 0.3.1
 ## LoadSavedVariablesFirst: 1
 ## SavedVariables: ForeverMultiMonitorDB
 ## SavedVariablesPerCharacter: ForeverMultiMonitorCharDB

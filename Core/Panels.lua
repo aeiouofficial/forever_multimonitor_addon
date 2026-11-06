@@ -147,18 +147,26 @@ function Panels:RouteFrame(frame, layout)
     return result ~= false
 end
 
-function Panels:RouteIfEnabled(frame)
-    if not frame or not (Addon.db and Addon.db.enabled) then return end
-    self:Hook(frame)
-    Addon:RunWhenSafe(function()
-        if not (Addon.db and Addon.db.enabled) then return end
-        local layout, err = Addon.Geometry:Calculate(Addon:GetProfile())
-        if not layout then
-            Addon:ReportError("Panel geometry unavailable for " .. frameName(frame), err)
-            return
+function Panels:ReconcileFrame(frame)
+    if not frame then return false end
+    return Addon:RunWhenSafe(function()
+        if Addon.db and Addon.db.enabled and frame.IsShown and frame:IsShown() then
+            local layout, err = Addon.Geometry:Calculate(Addon:GetProfile())
+            if not layout then
+                Addon:ReportError("Panel geometry unavailable for " .. frameName(frame), err)
+                return
+            end
+            self:RouteFrame(frame, layout)
+        else
+            self:Restore(frame)
         end
-        self:RouteFrame(frame, layout)
-    end, "route:" .. tostring(frame))
+    end, "panel-state:" .. tostring(frame))
+end
+
+function Panels:RouteIfEnabled(frame)
+    if not frame then return end
+    self:Hook(frame)
+    return self:ReconcileFrame(frame)
 end
 
 function Panels:Hook(frame)
@@ -166,6 +174,7 @@ function Panels:Hook(frame)
     self.hooked[frame] = true
     self.discoveryCount = self.discoveryCount + 1
     frame:HookScript("OnShow", function(shownFrame) Panels:RouteIfEnabled(shownFrame) end)
+    frame:HookScript("OnHide", function(hiddenFrame) Panels:ReconcileFrame(hiddenFrame) end)
     frame:HookScript("OnDragStop", function(draggedFrame) Panels:SavePosition(draggedFrame) end)
     return true
 end

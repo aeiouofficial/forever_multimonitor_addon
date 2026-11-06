@@ -169,6 +169,35 @@ unknown.name = "UnknownAddonPanel"
 ShowUIPanel(unknown)
 assert(unknown.hooks.OnShow == nil and #unknown.points == 0, "unregistered frame was routed")
 """)
+lua.execute("""
+local lifecycle = makeFrame({{"TOPLEFT", UIParent, "TOPLEFT", 40, -50}, {"BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -60, 70}}, 1.1)
+lifecycle.name = "QuestLogFrame"
+ShowUIPanel(lifecycle)
+assert(#lifecycle.hooks.OnHide == 1, "supported panel did not receive an OnHide lifecycle hook")
+lifecycle.shown = false
+lifecycle.hooks.OnHide[1](lifecycle)
+assert(#lifecycle.points == 2 and lifecycle.scale == 1.1, "hidden panel did not restore its original geometry")
+assert(ForeverMultiMonitor.Panels.originalPoints[lifecycle] == nil, "hidden panel retained a stale geometry snapshot")
+lifecycle.shown = true
+lifecycle.hooks.OnShow[1](lifecycle)
+assert(#lifecycle.points == 1 and lifecycle.scale < 1.1, "reopened panel was not routed into the Offhand workspace")
+inCombat = true
+lifecycle.shown = false
+lifecycle.hooks.OnHide[1](lifecycle)
+lifecycle.shown = true
+lifecycle.hooks.OnShow[1](lifecycle)
+inCombat = false
+ForeverMultiMonitor:FlushPendingWork()
+assert(#lifecycle.points == 1 and lifecycle.scale < 1.1, "combat hide/show did not converge on the latest shown state")
+inCombat = true
+lifecycle.shown = false
+lifecycle.hooks.OnHide[1](lifecycle)
+inCombat = false
+ForeverMultiMonitor:FlushPendingWork()
+assert(#lifecycle.points == 2 and lifecycle.scale == 1.1, "combat hide did not converge on the latest hidden state")
+""")
+print("PASS Lua 5.1: panel hide restores original geometry and reopen routes it again")
+
 print("PASS Lua 5.1: late panel discovery, idempotent hooks, routing and multi-anchor/scale restore")
 print("PASS Lua 5.1: anchorless restore and ToggleFrame global-name discovery")
 

@@ -11,7 +11,7 @@ Target: the public user-facing Offhand workflow, excluding the Companion process
 | Panel ownership / protected HUD exclusions | Lua addon | One registered owner per known family; protected HUD and replacement-bag prefixes excluded | Lua 5.1 mock; compatibility with actual UI replacements open |
 | Panel anchor/scale restore | Lua addon | Original in-session anchors and scale captured once and restored | Lua 5.1 mock; live test open |
 | Panel drag position persistence | Lua addon | Normalized per-character save/reapply when native `OnDragStop` fires | Lua 5.1 mock; supported frame drag behavior open |
-| Panel lifecycle, Escape and focus | Lua addon | Basic show routing; complete hide/focus/Escape ownership not implemented | Open |
+| Panel lifecycle, Escape and focus | Lua addon | `OnShow` routes; `OnHide` restores original anchors/scale; keyed combat-safe reconciliation converges on latest visibility state. Focus ownership and Escape integration remain incomplete | Lua 5.1 runtime simulation; live lifecycle/focus/Escape tests open |
 | Combat-safe operations | Lua addon | Keyed queue converges on current SavedVariables state after combat | Lua 5.1 runtime simulation; live combat test open |
 | Recovery after login/world/UI scale/display-size changes | Lua addon | Debounced recovery and generation checks | Lua 5.1 runtime simulation; live client test open |
 | Raw mouse input | Lua addon | Saves previous `rawMouseEnable`, enables while active and restores on disable/logout | Lua 5.1 simulation; real Forever CVar behavior open |

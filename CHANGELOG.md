@@ -1,3 +1,23 @@
+## [0.3.1] - 2026-11-06
+
+### Fixed
+- Added explicit panel `OnHide` restoration so supported windows return to their captured original anchors and scale when closed.
+- Unified panel show/hide handling behind one keyed desired-state reconciliation. Rapid visibility changes during combat now coalesce and apply only the latest shown/hidden state after combat.
+- Added Lua 5.1 runtime regression coverage for hide/restore/reopen and both combat-deferred visibility orderings.
+
+### Changed
+- Bumped addon version and TOC metadata to `0.3.1`.
+- Updated feature-parity and verification documentation to distinguish the implemented show/hide lifecycle from still-open focus and Escape integration.
+
+### Verification
+- `python tools/runtime_regression.py`: all Lua 5.1 syntax and mocked runtime scenarios passed, including new panel lifecycle and combat-convergence cases.
+- `node tools/validate.js`: PASS.
+- `node tools/regression.js`: 47 source regression assertions passed.
+- `git diff --check`: PASS.
+
+### Remaining limitations
+- Focus ownership, Escape integration, panel-specific behavior, the actual Forever client and native WoW window placement/restore remain unverified or incomplete. This is not full Offhand parity.
+
 ## [0.3.0] - 2026-11-06
 
 ### Added
@@ -28,7 +48,7 @@
 - The native helper's `place` and `restore` commands have not been executed against the live WoW window. Only build/help/display enumeration were exercised.
 - The helper uses a rectangular union of selected monitor bounds. It does not yet monitor display hotplug, automatically roll back on disconnect, provide a graphical display selector or communicate through a helper-to-addon protocol.
 - The helper sets its own DPI awareness; mixed-DPI behavior of the WoW process is not proven. The current development machine reports 2560x1080 at 96 DPI and 1920x1080 at 120 DPI, but no live game-window placement was attempted.
-- Panel family controllers still share a common placement primitive. Complete panel-specific lifecycle, focus, Escape, custom drag handles, transient HUD, Edit Mode and replacement-addon adapters remain open.
+- Panel family controllers still share a common placement primitive. Focus ownership, Escape integration, custom drag handles, transient HUD, Edit Mode and replacement-addon adapters remain open.
 - The settings window is a basic control surface and setup guide, not the complete Offhand dashboard/wizard. Theme packs, custom backgrounds, preview/recovery UX and code-free media import remain open.
 - Full Offhand user-facing feature parity is not achieved. Do not mark this release verified until every row in `docs/FEATURE_PARITY.md` and `docs/TEST_MATRIX.md` has real implementation and evidence.
 

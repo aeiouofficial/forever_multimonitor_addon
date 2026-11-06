@@ -8,7 +8,7 @@ Target: WoW Forever launch client `1.60.1.70790`, interface `16001`, game type `
 |---|---|---|
 | Manifest / Lua structure / workspace restrictions | `node tools/validate.js` | PASS; 13 TOC Lua modules |
 | Source regression assertions | `node tools/regression.js` | PASS; 47 assertions |
-| Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` | PASS; geometry, named profiles, options window, combat, panel registry/discovery, anchors, persistence, raw mouse and recovery scenarios |
+| Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` | PASS; geometry, named profiles, options window, combat, panel registry/discovery, show/hide restoration and combat visibility convergence, anchors, persistence, raw mouse and recovery scenarios |
 | Windows helper compile | `WindowsHelper/build.ps1` | PASS; .NET 10 Release build, 0 warnings / 0 errors |
 | Windows display enumeration | `ForeverMultiMonitor.WindowsHelper.exe list` | PASS on development PC; two displays reported with device IDs, bounds and DPI |
 | Native WoW window placement/restore | `place` / `restore` against actual WoW | NOT RUN; requires intentional live-window test |
@@ -37,6 +37,7 @@ Lua mocks are not a substitute for the Forever client. Windows display enumerati
 | Combat | Apply while in combat | No protected-action error; operation is deferred |
 | Combat | Change settings and disable/enable during combat | Latest desired state is applied once after combat |
 | Map | Open/close/reopen World Map | Map is usable in Offhand and restores correctly |
+| Panel lifecycle | Open, close and reopen each supported panel; repeat hide/show transitions during combat | Hidden panels restore original anchors/scale; reopened panels route again; after combat only the latest visibility state is applied |
 | Character | Open/close Character panel | Panel routes and restores correctly |
 | Bags | Open each supported default bag mode | No duplicate, hidden or stuck frames |
 | Replacement bags | Test each supported replacement-bag addon | Replacement frames remain untouched until a dedicated adapter exists |
