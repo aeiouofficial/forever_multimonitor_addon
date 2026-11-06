@@ -4,9 +4,9 @@ namespace = namespace or {}
 _G.ForeverMultiMonitor = namespace
 
 namespace.name = addonName
-namespace.version = "0.1.0"
-namespace.pendingWork = false
-namespace.pendingCallback = nil
+namespace.version = "0.3.0"
+namespace.pendingCallbacks = {}
+namespace.pendingCallbackKeys = {}
 namespace.lastError = nil
 
 function namespace:Print(message)
@@ -23,14 +23,20 @@ function namespace:ReportError(context, err)
     self:Print(tostring(context) .. ": " .. tostring(err))
 end
 
-function namespace:RunWhenSafe(callback)
+function namespace:RunWhenSafe(callback, key)
     if type(callback) ~= "function" then
         return false
     end
 
     if InCombatLockdown and InCombatLockdown() then
-        self.pendingWork = true
-        self.pendingCallback = callback
+        if key and self.pendingCallbackKeys[key] then
+            self.pendingCallbacks[self.pendingCallbackKeys[key]] = callback
+        else
+            self.pendingCallbacks[#self.pendingCallbacks + 1] = callback
+            if key then
+                self.pendingCallbackKeys[key] = #self.pendingCallbacks
+            end
+        end
         return false
     end
 
@@ -39,20 +45,22 @@ function namespace:RunWhenSafe(callback)
         self:ReportError("Operation failed", err)
         return false
     end
-
     return true
 end
 
 function namespace:FlushPendingWork()
-    if not self.pendingWork then
+    if InCombatLockdown and InCombatLockdown() then
         return
     end
 
-    local callback = self.pendingCallback
-    self.pendingWork = false
-    self.pendingCallback = nil
+    local callbacks = self.pendingCallbacks
+    self.pendingCallbacks = {}
+    self.pendingCallbackKeys = {}
 
-    if callback then
-        self:RunWhenSafe(callback)
+    for index, callback in ipairs(callbacks) do
+        local ok, err = pcall(callback)
+        if not ok then
+            self:ReportError("Deferred operation " .. tostring(index) .. " failed", err)
+        end
     end
 end

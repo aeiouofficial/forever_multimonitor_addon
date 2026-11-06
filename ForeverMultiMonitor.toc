@@ -3,7 +3,7 @@
 ## Title: Forever MultiMonitor
 ## Notes: Companion-free dual-monitor workspace for World of Warcraft: Forever.
 ## Author: aeiouofficial
-## Version: 0.1.0
+## Version: 0.3.0
 ## LoadSavedVariablesFirst: 1
 ## SavedVariables: ForeverMultiMonitorDB
 ## SavedVariablesPerCharacter: ForeverMultiMonitorCharDB
@@ -11,9 +11,13 @@
 Core\Bootstrap.lua
 Core\Compat.lua
 Core\Config.lua
+Core\RawMouse.lua
 Core\Geometry.lua
 Core\Viewport.lua
+Core\PanelRegistry.lua
+Core\PanelControllers.lua
 Core\Panels.lua
 Core\Recovery.lua
 Core\Commands.lua
+Core\Options.lua
 Core\Init.lua

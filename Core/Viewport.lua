@@ -16,9 +16,7 @@ local function capturePoints(frame)
 end
 
 function Viewport:Capture()
-    if self.originalPoints then
-        return
-    end
+    if self.originalPoints then return end
     if not WorldFrame or not WorldFrame.GetNumPoints then
         error("WorldFrame is unavailable")
     end
@@ -26,22 +24,15 @@ function Viewport:Capture()
 end
 
 function Viewport:Apply(layout)
-    if not layout then
-        error("Cannot apply viewport without geometry")
-    end
+    if not layout then error("Cannot apply viewport without geometry") end
     if InCombatLockdown and InCombatLockdown() then
-        Addon.pendingWork = true
-        Addon.pendingCallback = function()
-            Addon:Apply()
-        end
+        Addon:RunWhenSafe(function() Addon:Apply() end, "viewport-apply")
         return false
     end
-
     self:Capture()
     WorldFrame:ClearAllPoints()
     WorldFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", layout.mainhand.left, 0)
     WorldFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", layout.mainhand.right, 0)
-
     self.applied = true
     return true
 end
@@ -52,10 +43,7 @@ function Viewport:Restore()
         return true
     end
     if InCombatLockdown and InCombatLockdown() then
-        Addon.pendingWork = true
-        Addon.pendingCallback = function()
-            Addon:Reset()
-        end
+        Addon:RunWhenSafe(function() Addon:Reset() end, "viewport-restore")
         return false
     end
 
@@ -67,7 +55,7 @@ function Viewport:Restore()
             WorldFrame:SetPoint(anchor[1], anchor[2], anchor[3], anchor[4], anchor[5])
         end
     end
-
+    self.originalPoints = nil
     self.applied = false
     return true
 end

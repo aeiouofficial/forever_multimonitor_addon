@@ -1,33 +1,54 @@
 # Offhand feature-parity assessment
 
-This project aims to reproduce the user-facing in-game workflow without requiring the Offhand Companion. It does not copy Offhand source code. The public Offhand repository's license is All Rights Reserved and expressly restricts derivatives and forking; implementation here is independently authored from public behavior and API documentation.
+Target: the public user-facing Offhand workflow, excluding the Companion process itself. The project is independently implemented; no Offhand source or Companion protocol is copied. A feature is not considered complete merely because a module or command exists.
 
-This matrix separates addon capabilities from operating-system capabilities.
+| Capability | Required layer | Current implementation | Evidence / release state |
+|---|---|---|---|
+| Mainhand/Offhand viewport split | Lua addon | Left/right logical-canvas split, width and seam configuration | Lua 5.1 geometry simulation; Forever live test open |
+| WorldFrame capture/apply/restore | Lua addon | Anchor snapshot, viewport placement and restore | Lua 5.1 simulation; Forever live test open |
+| Route map, character, spellbook, quest, professions, auction, social, collections, encounters, achievements and bags | Lua addon | Explicit registry; generic placement primitive shared by registered family controllers | Lua 5.1 simulation; family-specific adapters/live tests open |
+| Dynamic panel discovery | Lua addon | `ShowUIPanel`, `ToggleFrame`, named `CreateFrame`, bag toggles and addon-load scans | Lua 5.1 mock; real client hook behavior open |
+| Panel ownership / protected HUD exclusions | Lua addon | One registered owner per known family; protected HUD and replacement-bag prefixes excluded | Lua 5.1 mock; compatibility with actual UI replacements open |
+| Panel anchor/scale restore | Lua addon | Original in-session anchors and scale captured once and restored | Lua 5.1 mock; live test open |
+| Panel drag position persistence | Lua addon | Normalized per-character save/reapply when native `OnDragStop` fires | Lua 5.1 mock; supported frame drag behavior open |
+| Panel lifecycle, Escape and focus | Lua addon | Basic show routing; complete hide/focus/Escape ownership not implemented | Open |
+| Combat-safe operations | Lua addon | Keyed queue converges on current SavedVariables state after combat | Lua 5.1 runtime simulation; live combat test open |
+| Recovery after login/world/UI scale/display-size changes | Lua addon | Debounced recovery and generation checks | Lua 5.1 runtime simulation; live client test open |
+| Raw mouse input | Lua addon | Saves previous `rawMouseEnable`, enables while active and restores on disable/logout | Lua 5.1 simulation; real Forever CVar behavior open |
+| In-game options dashboard | Lua addon | `/fmm config`: enable, side, width, seam, scale, raw mouse, profile controls, apply/reset | Lua parse/source tests; in-client visual/input test open |
+| Setup wizard | Lua addon | Basic instruction page inside options window | Source/parse checks; not a full guided stateful wizard |
+| Named profiles / profile switching | Lua addon | Legacy settings migrate to `Default`; named profiles can be created, saved, loaded and deleted with active/default protection | Lua 5.1 runtime simulation; live UI/reload test open |
+| Themes / custom backgrounds / media import | Lua addon | Not implemented | Open |
+| Edit Mode / protected HUD integration | Lua addon | Not implemented; Forever API support not established | Open; no secure-frame bypass planned |
+| Gamepad/Mainhand behavior, chat bubbles, popup/menu bounds, transient HUD | Lua addon | Not implemented as a complete compatibility layer | Open |
+| Ultrawide presets / aspect and bezel calibration | Lua addon | Basic width and seam controls only; no 21:9/32:9 presets | Partial |
+| Physical display enumeration | Windows helper | Device names/IDs, physical bounds, primary flag and effective DPI | Built and executed on development PC; target system matrix open |
+| Native WoW window discovery | Windows helper | Visible top-level window lookup by known process names or explicit process | Compiled; live WoW process test open |
+| Native HWND resize / borderless placement | Windows helper | One-shot rectangular union of selected display bounds and border-style removal | Compiled; not executed against live WoW |
+| Original native window restoration | Windows helper | Saves style/ex-style and full `WINDOWPLACEMENT`; explicit `restore` command | Compiled; round-trip live window test open |
+| Mixed DPI / asymmetric / stacked monitor geometry | Windows helper | Reports DPI and monitor bounds; union rectangle used for placement | Enumeration exercised; real WoW mixed-DPI placement unverified |
+| Display disconnect/reconnect / hotplug rollback | Windows helper | Not implemented; helper is one-shot | Open |
+| Direct helper-to-addon geometry handoff | Integration | Not implemented; addon reads the resulting combined `UIParent` canvas and retains manual geometry controls | Open |
+| Resident monitoring / auto-start / Companion process | Excluded | No service, tray resident, auto-start, Companion or Companion protocol | Intentional scope boundary |
+| Full Offhand feature parity | Both | Not achieved | Release gate open |
 
-| Capability | Addon-only feasibility | Current project state |
-|---|---|---|
-| Mainhand / Offhand viewport split | Yes, through WorldFrame/UI anchoring | Initial controller; live test pending |
-| Route map, bags, character and other native panels | Yes, subject to frame protection and UI ownership | Initial registry; incomplete |
-| Panel persistence across reloads and sessions | Yes, through SavedVariables and native frame state | Not implemented beyond account profile and recovery geometry |
-| Setup wizard and configuration UI | Yes | Not implemented |
-| HUD / Edit Mode layout integration | Partly; depends on Forever's exposed protected APIs | Runtime capability probe only |
-| Combat-safe deferred frame changes | Yes, within Blizzard's protected-action rules | Initial deferral mechanism |
-| Physical monitor enumeration and exact rectangles | No supported WoW Lua API | Not available |
-| Native HWND resize, move and border removal | No supported WoW Lua API | Not available |
-| Automatic native window span / restore | No supported WoW Lua API | Delegated to FancyZones/manual setup |
-| Exact mixed-DPI and asymmetric monitor topology | Not inferable from UIParent canvas alone | Not available |
-| Display disconnect / reconnect recovery | Not possible without OS-level window access | Not available |
-| Single ultrawide physical display split | Logical split is possible; physical monitor detection is not | Not implemented |
+## Hard technical boundary
+
+WoW addon Lua cannot enumerate Windows monitors, inspect physical monitor identities, resize/move the native WoW HWND or remove its native borders. Those operations require an OS-side process. `WindowsHelper` currently handles display enumeration and one-shot window placement/restoration. It is not a drop-in Companion replacement: it has no hotplug watcher, resident process, display-selection GUI or direct data protocol to Lua.
+
+The helper combines selected monitor bounds into a single rectangle. Non-adjacent or vertically offset displays can leave unused areas inside that rectangle. Mixed-DPI behavior also depends on the WoW process DPI-awareness mode, which the helper does not change.
+
+## Release gate
+
+Do not claim Offhand parity until:
+
+1. Every feasible addon-side feature has a named implementation and behavioral regression test.
+2. Every Windows-only feature has a tested implementation in the separate helper, including topology and hotplug rollback.
+3. Every public Offhand user-facing feature is represented above with implementation and evidence.
+4. The actual Forever client passes cold launch, reload, combat, Escape, drag, panel lifecycle, persistence, UI-scale and display-change tests.
+5. The helper passes native placement/restore tests against the real WoW process and supported monitor topologies.
+6. Static, simulated, local Windows and live-client evidence remain separately labelled. Only live-verified behavior satisfies the release gate.
 
 ## What FancyZones replaces
 
-FancyZones can snap the WoW window to zones spanning multiple monitors when **Allow zones to span across monitors** is enabled. Microsoft documents that all connected monitors must use the same DPI scaling for this mode. FancyZones is a window-placement utility; it does not provide Offhand's exact topology protocol, native-window recovery logic, or addon panel routing.
-
-## Release definition
-
-The project must not claim exact Offhand parity until:
-
-1. Every feasible addon-side feature has a named implementation and regression test.
-2. Every Windows-only feature has an explicitly accepted FancyZones/manual equivalent or is marked unavailable.
-3. The current Forever live client passes the full test matrix, including cold launch, reload, combat lockdown, monitor changes and panel lifecycle.
-4. A feature-by-feature comparison against the public Offhand documentation shows no unaccounted user-facing behavior.
+FancyZones can assist with manual positioning of a native WoW window across monitors. It does not provide Offhand-specific display identity, exact native geometry protocol, borderless control or hotplug recovery. It is an optional manual fallback, not feature parity.

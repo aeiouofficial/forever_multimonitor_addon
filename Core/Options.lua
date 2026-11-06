@@ -1,0 +1,201 @@
+local _, Addon = ...
+
+local Options = {}
+Addon.Options = Options
+
+local function makeText(parent, text, size, layer)
+    local font = parent:CreateFontString(nil, layer or "OVERLAY", "GameFontNormal")
+    font:SetText(text or "")
+    if font.SetFont then font:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size or 12, "") end
+    return font
+end
+
+local function makeButton(parent, text, width, height, callback)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(width or 110, height or 26)
+    button:SetNormalTexture("Interface\\Buttons\\UI-Panel-Button-Up")
+    button:SetPushedTexture("Interface\\Buttons\\UI-Panel-Button-Down")
+    button:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+    local label = makeText(button, text, 12)
+    label:SetPoint("CENTER")
+    button.label = label
+    button:SetScript("OnClick", callback)
+    return button
+end
+
+local function makeSlider(parent, labelText, minValue, maxValue, step, formatValue, onChange)
+    local container = CreateFrame("Frame", nil, parent)
+    container:SetSize(440, 52)
+    local label = makeText(container, labelText, 12)
+    label:SetPoint("TOPLEFT", 0, 0)
+    local valueText = makeText(container, "", 12)
+    valueText:SetPoint("TOPRIGHT", 0, 0)
+    local slider = CreateFrame("Slider", nil, container)
+    slider:SetPoint("TOPLEFT", 0, -22)
+    slider:SetSize(420, 18)
+    slider:SetOrientation("HORIZONTAL")
+    slider:SetMinMaxValues(minValue, maxValue)
+    slider:SetValueStep(step)
+    if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
+    slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+    slider:SetScript("OnValueChanged", function(_, value)
+        valueText:SetText(formatValue(value))
+        onChange(value)
+    end)
+    slider:SetScript("OnMouseUp", function() if Addon.db and Addon.db.enabled then Addon:Apply() end; if Addon.Options then Addon.Options:Refresh() end end)
+    container.slider = slider
+    container.valueText = valueText
+    container.formatValue = formatValue
+    return container
+end
+
+function Options:Refresh()
+    if not self.frame or not Addon.db then return end
+    local profile = Addon:GetProfile()
+    self.enabledButton.label:SetText(Addon.db.enabled and "Disable layout" or "Enable layout")
+    self.sideLeft.label:SetText(profile.mainhandSide == "left" and "[ Mainhand left ]" or "Mainhand left")
+    self.sideRight.label:SetText(profile.mainhandSide == "right" and "[ Mainhand right ]" or "Mainhand right")
+    self.rawMouseButton.label:SetText("Raw mouse: " .. (profile.rawMouseEnabled and "ON" or "OFF"))
+    self.profileLabel:SetText("Profile: " .. Addon:GetActiveProfileName() .. " (" .. tostring(#Addon:GetProfileNames()) .. ")")
+    self.widthSlider.slider:SetValue(profile.mainhandWidthPercent)
+    self.seamSlider.slider:SetValue(profile.seamUiUnits)
+    self.scaleSlider.slider:SetValue(profile.panelScale)
+    local layout, err = Addon.Geometry:Calculate(profile)
+    if layout then
+        self.status:SetText(string.format("%s | Canvas %.0f x %.0f | Offhand %.0f UI units", Addon.db.enabled and "ACTIVE" or "DISABLED", layout.canvasWidth, layout.canvasHeight, layout.workspace.width))
+    else
+        self.status:SetText("Layout unavailable: " .. tostring(err))
+    end
+end
+
+function Options:ShowWizard()
+    if not self.wizard then
+        local wizard = CreateFrame("Frame", nil, self.frame)
+        wizard:SetPoint("TOPLEFT", 18, -52)
+        wizard:SetPoint("BOTTOMRIGHT", -18, 54)
+        if wizard.SetBackdrop then
+            wizard:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 24, insets = { left = 8, right = 8, top = 8, bottom = 8 } })
+        end
+        wizard.title = makeText(wizard, "Setup wizard", 18)
+        wizard.title:SetPoint("TOPLEFT", 16, -16)
+        wizard.body = makeText(wizard, "", 13)
+        wizard.body:SetPoint("TOPLEFT", 16, -52)
+        wizard.body:SetPoint("RIGHT", -16, 0)
+        wizard.body:SetJustifyH("LEFT")
+        wizard.body:SetJustifyV("TOP")
+        wizard.body:SetText("1. Set WoW to Windowed mode.\n2. Use the Windows helper to inspect displays and span the game window.\n3. Return here and choose the Mainhand side and workspace width.\n4. Apply the layout and verify both regions in the Forever client.\n\nThe addon cannot enumerate physical displays or move the Windows game window by itself.")
+        wizard.back = makeButton(wizard, "Back to settings", 140, 28, function() wizard:Hide(); self.settings:Show() end)
+        wizard.back:SetPoint("BOTTOMLEFT", 12, 12)
+        wizard:Hide()
+        self.wizard = wizard
+    end
+    self.settings:Hide()
+    self.wizard:Show()
+end
+
+function Options:Create()
+    if self.frame then return self.frame end
+    local frame = CreateFrame("Frame", "ForeverMultiMonitorOptionsFrame", UIParent)
+    frame:SetSize(500, 500)
+    frame:SetPoint("CENTER")
+    frame:SetFrameStrata("DIALOG")
+    frame:SetMovable(true)
+    if frame.SetClampedToScreen then frame:SetClampedToScreen(true) end
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    if frame.SetBackdrop then
+        frame:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 24, insets = { left = 8, right = 8, top = 8, bottom = 8 } })
+    else
+        local bg = frame:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.035, 0.045, 0.075, 0.98)
+    end
+    local title = makeText(frame, "Forever MultiMonitor", 18)
+    title:SetPoint("TOPLEFT", 20, -18)
+    local close = makeButton(frame, "X", 28, 24, function() frame:Hide() end)
+    close:SetPoint("TOPRIGHT", -18, -14)
+    self.status = makeText(frame, "", 11)
+    self.status:SetPoint("TOPLEFT", 22, -48)
+    self.enabledButton = makeButton(frame, "Enable layout", 150, 30, function()
+        Addon:SetEnabled(not Addon.db.enabled)
+        self:Refresh()
+    end)
+    self.enabledButton:SetPoint("TOPLEFT", 22, -78)
+    self.sideLeft = makeButton(frame, "Mainhand left", 140, 28, function() Addon:SetProfileValue("mainhandSide", "left"); if Addon.db.enabled then Addon:Apply() end; self:Refresh() end)
+    self.sideLeft:SetPoint("TOPLEFT", 190, -78)
+    self.sideRight = makeButton(frame, "Mainhand right", 140, 28, function() Addon:SetProfileValue("mainhandSide", "right"); if Addon.db.enabled then Addon:Apply() end; self:Refresh() end)
+    self.sideRight:SetPoint("TOPLEFT", 340, -78)
+
+    self.settings = CreateFrame("Frame", nil, frame)
+    self.profileLabel = makeText(frame, "Profile: Default", 12)
+    self.profileLabel:SetPoint("TOPLEFT", 22, -114)
+    self.profileNameInput = CreateFrame("EditBox", nil, frame)
+    self.profileNameInput:SetSize(122, 24)
+    local profileNameLabel = makeText(frame, "Name", 10)
+    profileNameLabel:SetPoint("TOPLEFT", 140, -94)
+    self.profileNameInput:SetPoint("TOPLEFT", 138, -108)
+    if self.profileNameInput.SetBackdrop then
+        self.profileNameInput:SetBackdrop({ bgFile = "Interface\\ChatFrame\\ChatFrameBackground", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 8, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+    else
+        local inputBackground = self.profileNameInput:CreateTexture(nil, "BACKGROUND")
+        inputBackground:SetAllPoints()
+        inputBackground:SetColorTexture(0.08, 0.09, 0.13, 0.95)
+    end
+    self.profileNameInput:SetAutoFocus(false)
+    if self.profileNameInput.SetFontObject then self.profileNameInput:SetFontObject(GameFontNormal) end
+    if self.profileNameInput.SetTextInsets then self.profileNameInput:SetTextInsets(5, 5, 2, 2) end
+    self.profileNameInput:SetText("")
+    self.profileNameInput:SetScript("OnEnterPressed", function(input) input:ClearFocus() end)
+    self.profileNewButton = makeButton(frame, "New", 58, 24, function()
+        local ok, err = Addon:CreateProfile(self.profileNameInput:GetText())
+        if not ok then Addon:Print(err) end
+        self:Refresh()
+    end)
+    self.profileNewButton:SetPoint("TOPLEFT", 266, -108)
+    self.profileLoadButton = makeButton(frame, "Load", 58, 24, function()
+        local ok, err = Addon:SetActiveProfile(self.profileNameInput:GetText())
+        if not ok then Addon:Print(err) end
+        self:Refresh()
+    end)
+    self.profileLoadButton:SetPoint("TOPLEFT", 328, -108)
+    self.profileDeleteButton = makeButton(frame, "Delete", 66, 24, function()
+        if not Addon:DeleteProfile(self.profileNameInput:GetText()) then Addon:Print("Cannot delete Default, the active profile, or a missing profile.") end
+        self:Refresh()
+    end)
+    self.profileDeleteButton:SetPoint("TOPLEFT", 390, -108)
+    self.settings:SetPoint("TOPLEFT", 22, -146)
+    self.settings:SetSize(450, 250)
+    self.widthSlider = makeSlider(self.settings, "Mainhand width", 25, 90, 1, function(v) return string.format("%.0f%%", v) end, function(v) Addon:SetProfileValue("mainhandWidthPercent", v) end)
+    self.widthSlider:SetPoint("TOPLEFT", 0, 0)
+    self.seamSlider = makeSlider(self.settings, "Seam offset (logical UI units)", 0, 100, 1, function(v) return string.format("%.0f", v) end, function(v) Addon:SetProfileValue("seamUiUnits", v) end)
+    self.seamSlider:SetPoint("TOPLEFT", 0, -64)
+    self.scaleSlider = makeSlider(self.settings, "Panel scale", 0.5, 1.5, 0.05, function(v) return string.format("%.2f", v) end, function(v) Addon:SetProfileValue("panelScale", v) end)
+    self.scaleSlider:SetPoint("TOPLEFT", 0, -128)
+    self.rawMouseButton = makeButton(frame, "Raw mouse: ON", 150, 28, function()
+        Addon:SetProfileValue("rawMouseEnabled", not Addon:GetProfile().rawMouseEnabled)
+        if Addon.RawMouse then Addon.RawMouse:Sync() end
+        self:Refresh()
+    end)
+    self.rawMouseButton:SetPoint("BOTTOMLEFT", 22, 58)
+    self.wizardButton = makeButton(frame, "Setup wizard", 120, 28, function() self:ShowWizard() end)
+    self.wizardButton:SetPoint("BOTTOMLEFT", 184, 58)
+    self.applyButton = makeButton(frame, "Apply", 90, 28, function() Addon:Apply(); self:Refresh() end)
+    self.applyButton:SetPoint("BOTTOMRIGHT", -122, 58)
+    self.resetButton = makeButton(frame, "Reset", 90, 28, function() Addon:SetEnabled(false); self:Refresh() end)
+    self.resetButton:SetPoint("BOTTOMRIGHT", -22, 58)
+    local footer = makeText(frame, "/fmm commands remain available. Native monitor control requires WindowsHelper.", 10)
+    footer:SetPoint("BOTTOMLEFT", 22, 28)
+    self.frame = frame
+    UISpecialFrames = UISpecialFrames or {}
+    table.insert(UISpecialFrames, "ForeverMultiMonitorOptionsFrame")
+    self:Refresh()
+    frame:Hide()
+    return frame
+end
+
+function Options:Toggle()
+    if not self.frame then self:Create() end
+    if self.frame:IsShown() then self.frame:Hide() else self.frame:Show(); self:Refresh() end
+end

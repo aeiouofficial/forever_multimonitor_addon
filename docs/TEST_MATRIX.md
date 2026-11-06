@@ -1,38 +1,77 @@
-# In-client Test Matrix
+# Verification Matrix
 
-Target: WoW Forever launch client **1.60.1.70790**, interface **16001**.
+Target: WoW Forever launch client `1.60.1.70790`, interface `16001`, game type `camelot`.
 
-## Required before release
+## Automated local checks
+
+| Area | Command | Current result |
+|---|---|---|
+| Manifest / Lua structure / workspace restrictions | `node tools/validate.js` | PASS; 13 TOC Lua modules |
+| Source regression assertions | `node tools/regression.js` | PASS; 47 assertions |
+| Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` | PASS; geometry, named profiles, options window, combat, panel registry/discovery, anchors, persistence, raw mouse and recovery scenarios |
+| Windows helper compile | `WindowsHelper/build.ps1` | PASS; .NET 10 Release build, 0 warnings / 0 errors |
+| Windows display enumeration | `ForeverMultiMonitor.WindowsHelper.exe list` | PASS on development PC; two displays reported with device IDs, bounds and DPI |
+| Native WoW window placement/restore | `place` / `restore` against actual WoW | NOT RUN; requires intentional live-window test |
+| WoW in-client behavior | Manual matrix below | NOT RUN |
+
+Lua mocks are not a substitute for the Forever client. Windows display enumeration is a local Windows test, not proof of WoW window placement or mixed-DPI behavior.
+
+## In-client release tests — not yet run
 
 | Area | Test | Pass criteria |
 |---|---|---|
 | Loading | Cold launch with addon enabled | No Lua errors; addon appears in AddOns |
-| Compatibility | `/fmm status` | Runtime version/build/interface match client |
-| Loading | `/reload` | No Lua errors; settings preserved |
+| Compatibility | `/fmm status` | Runtime version/build/interface match the target client |
+| Loading | `/reload` and relog | No Lua errors; settings and per-character positions persist |
+| GUI | `/fmm config` | Settings window opens, remains movable, closes with Escape and reopens |
+| GUI | Enable/disable control | Same result as `/fmm enable` and `/fmm disable` |
+| GUI | Side, width, seam and scale controls | Saved values match `/fmm status`; Apply updates the layout |
+| GUI | Raw mouse toggle | Previous CVar value is restored correctly |
+| Profiles | Create a named profile, change settings, load Default and reload the named profile | Each profile retains its own validated values across reload |
+| Profiles | Delete inactive profile / attempt to delete Default or active profile | Only inactive non-Default profiles can be deleted |
+| Setup | Open setup wizard page and return | Instructions are readable; settings state remains unchanged |
 | Recovery | Enter world / zone transition | Enabled layout reapplies once after UI settles |
-| Recovery | Change UI scale / window size | Geometry recalculates without anchor drift |
-| Detection | `/fmm status` | Reports logical canvas and active profile |
-| Viewport | Mainhand left | 3D world is confined to left region |
-| Viewport | Mainhand right | 3D world is confined to right region |
-| Viewport | Disable / reset | Original viewport anchors restored |
-| Combat | Apply while in combat | No protected-action error; operation deferred |
-| Combat | Leave combat | Pending layout applies once |
-| Map | Open / close / reopen World Map | Map is positioned in Offhand and remains usable |
-| Character | Open / close Character panel | Panel routes and restores correctly |
-| Bags | Open each supported bag mode | No duplicate, hidden, or stuck bag frames |
-| Persistence | Logout / relog / cold restart | Account options remain stable and layout recovers |
-| Topology | Different monitor sizes / vertical offsets | Documented manual geometry remains usable |
-| Regression | Disable addon | Native panels and viewport return to baseline |
+| Recovery | Change UI scale / game-window size | Geometry recalculates without anchor drift |
+| Viewport | Mainhand left and right | 3D world is confined to the configured Mainhand region |
+| Viewport | Disable/reset | Original WorldFrame anchors are restored |
+| Combat | Apply while in combat | No protected-action error; operation is deferred |
+| Combat | Change settings and disable/enable during combat | Latest desired state is applied once after combat |
+| Map | Open/close/reopen World Map | Map is usable in Offhand and restores correctly |
+| Character | Open/close Character panel | Panel routes and restores correctly |
+| Bags | Open each supported default bag mode | No duplicate, hidden or stuck frames |
+| Replacement bags | Test each supported replacement-bag addon | Replacement frames remain untouched until a dedicated adapter exists |
+| Drag | Drag a supported panel, reload and reopen | Saved normalized position is reapplied without clipping |
+| Escape/focus | Open several routed panels and press Escape | Expected close order and keyboard focus are preserved |
+| Raw mouse | Original CVar 0/1, enable then disable/logout | Original value is restored without overwriting a pre-enabled state |
+| Regression | Disable addon | Viewport and supported panels return to baseline |
+
+## Windows helper tests — not yet run against WoW
+
+| Area | Test | Pass criteria |
+|---|---|---|
+| Enumeration | Run `list` with one/two/multiple displays | Device names/IDs, physical bounds, primary state and DPI match Windows Display Settings |
+| Selection validation | Unknown or duplicate display name | Helper refuses placement without changing the game window |
+| Process detection | Run `place` with game closed or wrong process name | Helper refuses placement and creates no restore state |
+| Placement | Select two adjacent displays | WoW window covers the expected combined rectangle and is borderless |
+| Mixed DPI | Select displays with different scaling | No clipping/offset; record actual WoW DPI behavior |
+| Asymmetric topology | Use different resolutions / vertical offsets | Resulting union bounds are documented; unused gaps are expected where topology is non-rectangular |
+| Restore | Place then run `restore` | Original styles, size, position and show state are restored; state file is removed |
+| Safety | Run `place` while restore state exists | Second placement is refused |
+| Failure recovery | Close/recreate WoW HWND before restore | Helper refuses to modify an unrelated HWND and retains restore state |
+| Hotplug | Disconnect a selected display during placement | Currently unsupported; must be implemented before full parity |
 
 ## Environment capture
 
 Record the following with each live test:
+
 - `/dump GetBuildInfo()`
 - `/dump WOW_PROJECT_ID, WOW_PROJECT_CAMELOT`
 - `/fmm status`
-- Display arrangement, resolution and Windows scaling per display
+- Display device names, bounds, resolution and Windows scaling per display
+- WoW process executable name and window mode
 - Other addons that replace bags, map or character UI
+- Exact steps and first Lua/Windows error, including trace/correlation ID if one is logged
 
 ## Release gate
 
-Do not claim full support or Offhand feature parity until every required row is passed on the current live Forever build and panel compatibility has been tested with the default UI.
+Do not claim full Offhand support until every required in-client and helper row is passed on the current Forever build, all parity rows have evidence, and known unsupported APIs/features are explicitly bounded. Automated local tests are necessary, not sufficient.

@@ -7,8 +7,8 @@ const root = path.resolve(__dirname, "..");
 const toc = fs.readFileSync(path.join(root, "ForeverMultiMonitor.toc"), "utf8");
 const failures = [];
 const required = [
-  "Core/Bootstrap.lua", "Core/Compat.lua", "Core/Config.lua",
-  "Core/Geometry.lua", "Core/Viewport.lua", "Core/Panels.lua",
+  "Core/Bootstrap.lua", "Core/Compat.lua", "Core/Config.lua", "Core/RawMouse.lua",
+  "Core/Geometry.lua", "Core/Viewport.lua", "Core/PanelRegistry.lua", "Core/PanelControllers.lua", "Core/Panels.lua",
   "Core/Recovery.lua", "Core/Commands.lua", "Core/Init.lua",
 ];
 

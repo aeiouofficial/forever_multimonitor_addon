@@ -2,39 +2,61 @@
 
 ## Runtime boundary
 
-The addon runs inside WoW Forever's Lua sandbox. It can arrange in-game frames and the 3D viewport, but it cannot call Win32 APIs, enumerate Windows displays, resize the game HWND, remove native borders, or set the process window position. Those capabilities are outside the WoW addon API.
+The addon runs inside WoW Forever's Lua sandbox. It arranges in-game frames and the 3D viewport, but cannot call Win32 APIs, enumerate physical displays, resize the game HWND or remove native window borders.
 
-The companion-free workflow therefore has two independent layers:
+The companion-free implementation has two separate components:
 
-- **Windows layer:** PowerToys FancyZones or manual window placement spans the ordinary window across the selected displays.
-- **Addon layer:** the addon uses the resulting UIParent canvas dimensions to split Mainhand and Offhand, constrain the world viewport, and reposition supported UI panels.
+- **Lua addon:** logical Mainhand/Offhand viewport, supported panel routing, configuration, persistence and recovery.
+- **Windows helper:** display enumeration and explicit one-shot native window placement/restoration. It is a standalone executable; no service, autostart, resident monitor or Companion protocol is used.
 
-No hidden executable, service, local socket, named pipe, or Companion protocol is part of this project.
+The helper makes the game window cover the selected display bounds. The addon then consumes the resulting combined logical `UIParent` canvas. No direct helper-to-addon protocol currently exists.
 
-## Modules
+## Addon modules
 
-- `Bootstrap.lua`: shared addon namespace, guarded execution and combat-deferred work.
+- `Bootstrap.lua`: namespace, guarded execution and keyed combat-deferred work.
 - `Compat.lua`: runtime build, project and optional-API probes.
-- `Config.lua`: account defaults, validation and profile normalization.
+- `Config.lua`: account defaults, named profile migration/create/load/delete, profile validation and per-character position schema migration.
+- `RawMouse.lua`: save/enable/restore of the user's `rawMouseEnable` CVar.
 - `Geometry.lua`: logical canvas and Mainhand/Offhand rectangles.
 - `Viewport.lua`: WorldFrame anchor capture, apply and restore.
-- `Panels.lua`: Blizzard frame registry, show hooks and bag discovery hooks.
+- `PanelRegistry.lua`: supported frame names, one owner per family, protected-HUD/replacement-bag exclusions.
+- `PanelControllers.lua`: explicit family dispatch; actual family-specific lifecycle behavior remains incomplete.
+- `Panels.lua`: discovery hooks, in-session anchor/scale snapshots, per-character normalized drag-position persistence and restoration.
 - `Recovery.lua`: debounced login, world-entry and display/UI-scale recovery.
-- `Commands.lua`: slash-command interface.
-- `Init.lua`: addon lifecycle and event coordination.
+- `Commands.lua`: slash-command interface, including `/fmm config`.
+- `Options.lua`: in-game settings window, profile controls and instruction-only setup page.
+- `Init.lua`: addon lifecycle and current-state event coordination.
 
 ## Geometry model
 
-The implementation uses the logical dimensions of UIParent, not Windows physical-pixel coordinates. A profile specifies Mainhand side, width percentage, seam offset in UI units and panel scale. The remaining canvas is the Offhand workspace. Physical bezel width and mixed-DPI display topology are not inferred.
+The addon uses logical `UIParent` dimensions, not physical-pixel monitor coordinates. A profile specifies Mainhand side, width percentage, seam offset in UI units and panel scale. The remaining canvas is the Offhand workspace. Physical bezel width and mixed-DPI monitor topology are not inferred.
 
-## Protected frames
+## Panel ownership and protected frames
 
-Layout writes are deferred while `InCombatLockdown()` is true. Pending work is retried on `PLAYER_REGEN_ENABLED`. The addon does not reparent Blizzard frames or alter secure attributes. The panel registry is best-effort and limited to known default Blizzard frame globals. Replacement UI addons and dynamically created frames require explicit adapters and live testing.
+Each registered frame family has one position owner: World Map, Social, Professions, Bags or ordinary panels. A common placement primitive currently performs the actual anchor/scale operation. Complete family-specific visibility, focus, Escape, transient HUD and replacement-addon adapters are still open. Protected HUD prefixes and known replacement-bag prefixes are excluded. Unknown frames remain untouched until explicitly registered.
+
+Layout writes are deferred while `InCombatLockdown()` is true. Pending work is keyed so repeated apply/reset requests converge on the latest SavedVariables state. Pending work is retried on `PLAYER_REGEN_ENABLED`. The addon does not reparent Blizzard frames or alter secure attributes.
 
 ## Persistence
 
-Account settings live in `ForeverMultiMonitorDB`; the per-character SavedVariables table is reserved for future character overrides. The last successfully applied logical geometry and client build are recorded for diagnostics. Defaults are applied without overwriting existing account values. SavedVariables are the only persistence source; no Companion bridge or external persistence channel is used.
+Account settings live in `ForeverMultiMonitorDB`. Per-character `ForeverMultiMonitorCharDB.panelPositions` stores schema-1 normalized center offsets for named frames that emit native `OnDragStop` events. Coordinates are relative to the logical UIParent canvas. Unknown future schemas are treated as read-only. The last applied logical geometry and client build are recorded for diagnostics.
+
+## Windows helper
+
+`WindowsHelper` is a .NET 10 Windows x64 executable using Win32 display/window APIs. `list` enumerates monitor device names/IDs, physical bounds, primary status and effective DPI. `place` resolves a visible WoW process window, stores its original style/ex-style and complete `WINDOWPLACEMENT`, removes standard border styles and positions the window on the rectangular union of selected displays. `restore` validates HWND/process identity and restores the original style and placement. The helper is one-shot; it does not watch hotplug or run in the background.
+
+The restore state is stored next to the executable. The build script routes TEMP/TMP, .NET CLI home and NuGet cache into `.tmp` in the repository workspace. No external NuGet packages are used.
 
 ## Compatibility policy
 
-The manifest targets `Interface: 16001` and declares `AllowLoadGameType: camelot`. At runtime, the addon reports the client version/build/interface and probes optional APIs instead of assuming Retail and Forever expose identical APIs. A matching TOC interface alone is not runtime compatibility evidence.
+The manifest targets `Interface: 16001` and declares `AllowLoadGameType: camelot`. Runtime diagnostics report client version/build/interface and probe optional APIs instead of assuming Retail and Forever expose identical APIs. A matching TOC interface alone is not runtime compatibility evidence.
+
+## Verification boundary
+
+- `tools/validate.js`: TOC references, Lua structure and workspace sandbox assertions.
+- `tools/regression.js`: dependency-free source assertions.
+- `tools/runtime_regression.py`: Lua 5.1 parser plus mocked frame, geometry, queue, persistence, raw-mouse and recovery scenarios.
+- `WindowsHelper/build.ps1`: Windows helper build.
+- `WindowsHelper.exe list`: local Windows display enumeration.
+
+These checks do not prove secure-frame taint safety, real panel behavior or native WoW window placement. The in-client and live-window matrices remain release gates.

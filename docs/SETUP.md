@@ -1,40 +1,78 @@
-# Companion-free Windows setup
+# Companion-free setup
 
-This guide covers the Windows window-placement portion only. The addon cannot change the native WoW window size or style.
+The addon and the Windows helper perform different jobs. The Windows helper spans the native game window across selected displays. The addon divides the resulting in-game canvas into Mainhand and Offhand.
 
-## 1. Prepare WoW
+## 1. Prepare the game
 
-1. Start the WoW Forever client and set Display Mode to **Windowed** (not Windowed Fullscreen).
-2. Set the Windows display arrangement to match the physical monitor arrangement.
-3. For FancyZones spanning, use the same Windows display scaling percentage on both monitors.
-4. Keep the WoW window at a normal, resizable window size before assigning zones.
+1. Start WoW Forever and use **Windowed** mode (not Windowed Fullscreen).
+2. Arrange the displays in Windows Display Settings as they are physically arranged.
+3. Confirm the display resolution and scaling values. Mixed-DPI arrangements are enumerated by the helper, but pixel-perfect WoW behavior is not yet live-verified.
+4. Keep the game in a normal, resizable window before applying placement.
 
-## 2. Configure PowerToys FancyZones
+## 2. Build and inspect the Windows helper
 
-1. Open PowerToys → FancyZones → Layout editor.
-2. Enable **Allow zones to span across monitors**. Microsoft requires all connected monitors to use the same DPI scaling for this mode.
-3. Create or choose a custom layout whose combined zone area covers both displays. A Canvas layout can be used to shape a zone across the combined desktop.
-4. Drag the WoW window. Hold **Shift** (the default activation setting) to show zones while dragging.
-5. If the target requires multiple adjacent zones, activate the first zone and hold **Ctrl** while continuing to drag to select multiple zones. Alternatively, drop into a zone already spanning both monitors.
-6. Confirm that the WoW client window covers the intended combined desktop area.
+From the repository root:
 
-PowerToys/FancyZones is an external Windows feature. This addon does not automate its configuration or control the native WoW window.
+```powershell
+.\WindowsHelper\build.ps1
+$helper = ".\WindowsHelper\bin\Release\net10.0-windows\ForeverMultiMonitor.WindowsHelper.exe"
+& $helper list
+```
 
-## 3. Configure the addon
+`list` reports the Windows device name, stable monitor device ID, bounds, primary state and effective DPI. Device names can change after hardware or driver changes; always use the current output.
+
+## 3. Span the WoW window
+
+Select the displays that should form the combined game canvas. Example only (the names on your machine may differ):
+
+```powershell
+& $helper place --monitors "\\.\DISPLAY5,\\.\DISPLAY1" --process auto
+```
+
+The helper locates a visible WoW process window, saves its original window styles and full `WINDOWPLACEMENT`, removes standard window borders and places it over the rectangular union of the selected display bounds. It exits immediately; no background process remains.
+
+**Restore:**
+
+```powershell
+& $helper restore
+```
+
+Do not delete or move the helper executable or its `window-state.json` until restore succeeds. Do not run `place` again while a restore state exists. If WoW exits or recreates its HWND, automatic recovery is not possible; the helper retains the state file for diagnosis.
+
+## 4. Configure the addon
 
 1. Install this folder as `Interface/AddOns/ForeverMultiMonitor` under the live `_forever_` client.
 2. Fully restart WoW after first installation.
-3. Run `/fmm status` and confirm the logical canvas is the expected combined width.
-4. Set the Mainhand display side and approximate width, for example `/fmm side left` and `/fmm width 50`.
-5. Run `/fmm enable` to activate the viewport and panel layout. Use `/fmm apply` to reapply it after changing the window or monitor arrangement.
+3. Run `/fmm status` and confirm the logical canvas has the expected combined width.
+4. Open `/fmm config`.
+5. Select Mainhand left/right and set the width, seam offset and panel scale.
+6. Create or load a named profile in the profile row if you need separate display layouts.
+7. Enable the layout and inspect the WorldFrame and supported panels. Use Apply after changing the native window arrangement.
 
-## 4. Recovery
+Named profile commands remain available: `/fmm profile list`, `/fmm profile create Desk`, `/fmm profile use Desk`, `/fmm profile delete Desk`. The protected `Default` profile cannot be deleted.
 
-- `/fmm disable` restores the captured viewport and supported panel positions.
-- `/fmm reset` disables the layout and restores the current session's captured positions.
-- If the game UI becomes unusable, use `/reload` or disable the addon at character select.
-- Back up the Forever SavedVariables before testing builds.
+Slash-command fallback remains available:
+
+```text
+/fmm side left
+/fmm width 50
+/fmm seam 0
+/fmm scale 1
+/fmm enable
+```
+
+## 5. Recovery
+
+- `/fmm disable` restores the captured in-session viewport and supported panel anchors/scales.
+- `/fmm reset` disables the layout and restores the current session's captured state.
+- The Windows helper's `restore` command restores the original native WoW window styles and placement.
+- If the in-game UI becomes unusable, use `/reload` or disable the addon at character select.
+- Back up Forever SavedVariables before testing development builds.
+
+## Manual fallback
+
+If the helper is not used, place the WoW window manually across the displays or use PowerToys FancyZones. FancyZones can help with manual placement but is not an automatic Offhand replacement and does not provide the helper's explicit restore snapshot.
 
 ## Limitations
 
-FancyZones aligns a native window to Windows zones. It does not understand WoW's internal viewport or UI panels. The addon controls those separately. Automatic monitor enumeration, automatic HWND resize, border removal, native-window recovery and exact physical-pixel topology are not provided by this addon-only design.
+The helper is one-shot. It does not monitor hotplug, auto-restore on display disconnect, install a service, start automatically or communicate with the addon through a Companion-like protocol. It combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The addon's setup page is instructional, not a full guided topology wizard. Complete panel focus/Escape lifecycle, themes, custom backgrounds, Edit Mode and full Offhand parity remain open.
