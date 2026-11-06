@@ -1,3 +1,23 @@
+## [0.3.2] - 2026-11-06
+
+### Added
+- Replaced the static setup instruction page with a three-step guided flow: prepare the native Windows window, configure Mainhand side/width, and activate the in-game layout.
+- Added live wizard controls backed by the same validated profile configuration as the dashboard and slash commands.
+- Added Lua 5.1 runtime coverage for wizard navigation, Mainhand controls and activation; added a source regression for the guided setup contract.
+
+### Changed
+- Bumped addon version and TOC metadata to `0.3.2`.
+- Updated README, setup instructions, feature-parity matrix and test matrix to describe the actual guided flow and its manual Windows-helper boundary.
+
+### Verification
+- `python tools/runtime_regression.py`: all Lua 5.1 syntax and mocked runtime scenarios passed, including the guided wizard controls and navigation.
+- `node tools/validate.js`: PASS.
+- `node tools/regression.js`: 48 source regression assertions passed.
+- `git diff --check`: PASS.
+
+### Remaining limitations
+- The wizard does not enumerate/select Windows displays or exchange geometry with the helper. Native monitor selection remains an explicit CLI step. Full dashboard/theme/preview features and live Forever validation remain open.
+
 ## [0.3.1] - 2026-11-06
 
 ### Fixed
@@ -49,7 +69,7 @@
 - The helper uses a rectangular union of selected monitor bounds. It does not yet monitor display hotplug, automatically roll back on disconnect, provide a graphical display selector or communicate through a helper-to-addon protocol.
 - The helper sets its own DPI awareness; mixed-DPI behavior of the WoW process is not proven. The current development machine reports 2560x1080 at 96 DPI and 1920x1080 at 120 DPI, but no live game-window placement was attempted.
 - Panel family controllers still share a common placement primitive. Focus ownership, Escape integration, custom drag handles, transient HUD, Edit Mode and replacement-addon adapters remain open.
-- The settings window is a basic control surface and setup guide, not the complete Offhand dashboard/wizard. Theme packs, custom backgrounds, preview/recovery UX and code-free media import remain open.
+- The settings window remains a basic dashboard. The guided wizard covers window preparation, Mainhand configuration and activation, but does not provide display selection or helper handoff. Theme packs, custom backgrounds, preview/recovery UX and code-free media import remain open.
 - Full Offhand user-facing feature parity is not achieved. Do not mark this release verified until every row in `docs/FEATURE_PARITY.md` and `docs/TEST_MATRIX.md` has real implementation and evidence.
 
 ## [0.2.0] - 2026-11-06

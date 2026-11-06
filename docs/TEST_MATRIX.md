@@ -7,7 +7,7 @@ Target: WoW Forever launch client `1.60.1.70790`, interface `16001`, game type `
 | Area | Command | Current result |
 |---|---|---|
 | Manifest / Lua structure / workspace restrictions | `node tools/validate.js` | PASS; 13 TOC Lua modules |
-| Source regression assertions | `node tools/regression.js` | PASS; 47 assertions |
+| Source regression assertions | `node tools/regression.js` | PASS; 48 assertions |
 | Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` | PASS; geometry, named profiles, options window, combat, panel registry/discovery, show/hide restoration and combat visibility convergence, anchors, persistence, raw mouse and recovery scenarios |
 | Windows helper compile | `WindowsHelper/build.ps1` | PASS; .NET 10 Release build, 0 warnings / 0 errors |
 | Windows display enumeration | `ForeverMultiMonitor.WindowsHelper.exe list` | PASS on development PC; two displays reported with device IDs, bounds and DPI |
@@ -29,7 +29,7 @@ Lua mocks are not a substitute for the Forever client. Windows display enumerati
 | GUI | Raw mouse toggle | Previous CVar value is restored correctly |
 | Profiles | Create a named profile, change settings, load Default and reload the named profile | Each profile retains its own validated values across reload |
 | Profiles | Delete inactive profile / attempt to delete Default or active profile | Only inactive non-Default profiles can be deleted |
-| Setup | Open setup wizard page and return | Instructions are readable; settings state remains unchanged |
+| Setup | Complete wizard: window instructions, Mainhand side/width, enable, Back/Next/Finish | Controls update the shared profile; activation matches dashboard behavior; navigation preserves values |
 | Recovery | Enter world / zone transition | Enabled layout reapplies once after UI settles |
 | Recovery | Change UI scale / game-window size | Geometry recalculates without anchor drift |
 | Viewport | Mainhand left and right | 3D world is confined to the configured Mainhand region |

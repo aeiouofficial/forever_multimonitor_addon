@@ -44,8 +44,8 @@ Do not delete or move the helper executable or its `window-state.json` until res
 1. Install this folder as `Interface/AddOns/ForeverMultiMonitor` under the live `_forever_` client.
 2. Fully restart WoW after first installation.
 3. Run `/fmm status` and confirm the logical canvas has the expected combined width.
-4. Open `/fmm config`.
-5. Select Mainhand left/right and set the width, seam offset and panel scale.
+4. Open `/fmm config` and select **Setup wizard** for the three-step guided flow, or configure directly in the dashboard.
+5. Choose Mainhand left/right and set the width, seam offset and panel scale.
 6. Create or load a named profile in the profile row if you need separate display layouts.
 7. Enable the layout and inspect the WorldFrame and supported panels. Use Apply after changing the native window arrangement.
 
@@ -75,4 +75,4 @@ If the helper is not used, place the WoW window manually across the displays or 
 
 ## Limitations
 
-The helper is one-shot. It does not monitor hotplug, auto-restore on display disconnect, install a service, start automatically or communicate with the addon through a Companion-like protocol. It combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The addon's setup page is instructional, not a full guided topology wizard. Complete panel focus/Escape lifecycle, themes, custom backgrounds, Edit Mode and full Offhand parity remain open.
+The helper is one-shot. It does not monitor hotplug, auto-restore on display disconnect, install a service, start automatically or communicate with the addon through a Companion-like protocol. It combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The wizard guides the user through native-window preparation, Mainhand side/width configuration and activation, but Windows display enumeration and placement remain manual helper CLI operations; there is no integrated display selector or direct helper-to-addon handoff. Complete panel focus/Escape lifecycle, themes, custom backgrounds, Edit Mode and full Offhand parity remain open.

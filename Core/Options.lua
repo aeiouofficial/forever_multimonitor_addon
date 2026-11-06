@@ -68,6 +68,72 @@ function Options:Refresh()
     end
 end
 
+local WIZARD_STEPS = {
+    {
+        title = "Setup 1 / 3 - Window",
+        body = [=[Prepare the Windows game window first.
+
+1. Set WoW to Windowed mode.
+2. Run WindowsHelper list and identify the displays.
+3. Use WindowsHelper place with the selected display names.
+
+The helper saves the original window state. Run restore when you want to return to the original window placement.]=],
+    },
+    {
+        title = "Setup 2 / 3 - Mainhand",
+        body = [=[Choose which side contains the Mainhand view and set its share of the combined logical canvas. The remaining area becomes the Offhand workspace. You can change these values later in the dashboard.]=],
+    },
+    {
+        title = "Setup 3 / 3 - Apply",
+        body = [=[Enable the layout to apply the viewport and route supported panels. Verify the 3D view and at least one supported panel in-game. Use Reset if the result is not correct.]=],
+    },
+}
+
+function Options:RefreshWizard()
+    if not self.wizard then return end
+    local step = math.max(1, math.min(#WIZARD_STEPS, tonumber(self.wizardStep) or 1))
+    self.wizardStep = step
+    local page = WIZARD_STEPS[step]
+    self.wizard.title:SetText(page.title)
+    self.wizard.body:SetText(page.body)
+    self.wizard.back:SetText(step == 1 and "Cancel" or "Back")
+    self.wizard.next:SetText(step == #WIZARD_STEPS and "Finish" or "Next")
+    if step == 2 then
+        local profile = Addon:GetProfile()
+        self.wizard.sideLeft.label:SetText(profile.mainhandSide == "left" and "[ Mainhand left ]" or "Mainhand left")
+        self.wizard.sideRight.label:SetText(profile.mainhandSide == "right" and "[ Mainhand right ]" or "Mainhand right")
+        self.wizard.widthSlider.slider:SetValue(profile.mainhandWidthPercent)
+        self.wizard.config:Show()
+    else
+        self.wizard.config:Hide()
+    end
+    if step == 3 then
+        self.wizard.enableButton:Show()
+        self.wizard.enableButton.label:SetText(Addon.db.enabled and "Layout enabled" or "Enable layout")
+    else
+        self.wizard.enableButton:Hide()
+    end
+    local currentStep = step
+    self.wizard.back:SetScript("OnClick", function()
+        if currentStep == 1 then
+            self.wizard:Hide()
+            self.settings:Show()
+        else
+            self.wizardStep = currentStep - 1
+            self:RefreshWizard()
+        end
+    end)
+    self.wizard.next:SetScript("OnClick", function()
+        if currentStep == #WIZARD_STEPS then
+            self.wizard:Hide()
+            self.settings:Show()
+            return
+        end
+        self.wizardStep = currentStep + 1
+        self:RefreshWizard()
+    end)
+end
+
 function Options:ShowWizard()
     if not self.wizard then
         local wizard = CreateFrame("Frame", nil, self.frame)
@@ -76,19 +142,48 @@ function Options:ShowWizard()
         if wizard.SetBackdrop then
             wizard:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 24, insets = { left = 8, right = 8, top = 8, bottom = 8 } })
         end
-        wizard.title = makeText(wizard, "Setup wizard", 18)
+        wizard.title = makeText(wizard, "Setup 1 / 3 - Window", 18)
         wizard.title:SetPoint("TOPLEFT", 16, -16)
         wizard.body = makeText(wizard, "", 13)
         wizard.body:SetPoint("TOPLEFT", 16, -52)
         wizard.body:SetPoint("RIGHT", -16, 0)
         wizard.body:SetJustifyH("LEFT")
         wizard.body:SetJustifyV("TOP")
-        wizard.body:SetText("1. Set WoW to Windowed mode.\n2. Use the Windows helper to inspect displays and span the game window.\n3. Return here and choose the Mainhand side and workspace width.\n4. Apply the layout and verify both regions in the Forever client.\n\nThe addon cannot enumerate physical displays or move the Windows game window by itself.")
-        wizard.back = makeButton(wizard, "Back to settings", 140, 28, function() wizard:Hide(); self.settings:Show() end)
+
+        wizard.config = CreateFrame("Frame", nil, wizard)
+        wizard.config:SetPoint("TOPLEFT", 16, -190)
+        wizard.config:SetSize(440, 120)
+        wizard.sideLeft = makeButton(wizard.config, "Mainhand left", 150, 28, function()
+            Addon:SetProfileValue("mainhandSide", "left")
+            self:RefreshWizard()
+        end)
+        wizard.sideLeft:SetPoint("TOPLEFT", 0, 0)
+        wizard.sideRight = makeButton(wizard.config, "Mainhand right", 150, 28, function()
+            Addon:SetProfileValue("mainhandSide", "right")
+            self:RefreshWizard()
+        end)
+        wizard.sideRight:SetPoint("TOPLEFT", 170, 0)
+        wizard.widthSlider = makeSlider(wizard.config, "Mainhand width", 25, 90, 1, function(v) return string.format("%.0f%%", v) end, function(v)
+            Addon:SetProfileValue("mainhandWidthPercent", v)
+        end)
+        wizard.widthSlider:SetPoint("TOPLEFT", 0, -42)
+
+        wizard.enableButton = makeButton(wizard, "Enable layout", 150, 30, function()
+            Addon:SetEnabled(true)
+            self:RefreshWizard()
+        end)
+        wizard.enableButton:SetPoint("BOTTOM", 0, 54)
+        wizard.back = makeButton(wizard, "Cancel", 110, 28, function() end)
         wizard.back:SetPoint("BOTTOMLEFT", 12, 12)
+        wizard.next = makeButton(wizard, "Next", 110, 28, function() end)
+        wizard.next:SetPoint("BOTTOMRIGHT", -12, 12)
+        wizard.config:Hide()
+        wizard.enableButton:Hide()
         wizard:Hide()
         self.wizard = wizard
     end
+    self.wizardStep = 1
+    self:RefreshWizard()
     self.settings:Hide()
     self.wizard:Show()
 end
