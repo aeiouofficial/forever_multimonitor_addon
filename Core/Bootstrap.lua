@@ -8,6 +8,7 @@ namespace.version = "0.4.1"
 namespace.pendingCallbacks = {}
 namespace.pendingCallbackKeys = {}
 namespace.lastError = nil
+namespace.errorGeneration = 0
 
 function namespace:Print(message)
     local prefix = "|cff79b8ffForeverMultiMonitor|r "
@@ -20,6 +21,7 @@ end
 
 function namespace:ReportError(context, err)
     self.lastError = tostring(err)
+    self.errorGeneration = (self.errorGeneration or 0) + 1
     self:Print(tostring(context) .. ": " .. tostring(err))
 end
 
@@ -40,11 +42,17 @@ function namespace:RunWhenSafe(callback, key)
         return false
     end
 
-    local ok, err = pcall(callback)
+    local errorGeneration = self.errorGeneration or 0
+    local ok, result, reason = pcall(callback)
     if not ok then
-        self:ReportError("Operation failed", err)
+        self:ReportError("Operation failed", result)
         return false
     end
+    if result == false and (self.errorGeneration or 0) == errorGeneration then
+        self:ReportError("Operation rejected", reason or "callback returned false")
+        return false
+    end
+    if result == false then return false end
     return true
 end
 
@@ -58,9 +66,12 @@ function namespace:FlushPendingWork()
     self.pendingCallbackKeys = {}
 
     for index, callback in ipairs(callbacks) do
-        local ok, err = pcall(callback)
+        local errorGeneration = self.errorGeneration or 0
+        local ok, result, reason = pcall(callback)
         if not ok then
-            self:ReportError("Deferred operation " .. tostring(index) .. " failed", err)
+            self:ReportError("Deferred operation " .. tostring(index) .. " failed", result)
+        elseif result == false and (self.errorGeneration or 0) == errorGeneration then
+            self:ReportError("Deferred operation " .. tostring(index) .. " rejected", reason or "callback returned false")
         end
     end
 end

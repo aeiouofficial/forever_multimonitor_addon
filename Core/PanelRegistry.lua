@@ -4,6 +4,13 @@ local Registry = {}
 Addon.PanelRegistry = Registry
 
 local definitions = {}
+local function isForeverProfessionsFrame(name)
+    return name == "TradeSkillFrame" or name == "CraftFrame"
+        or name:match("^Professions") ~= nil
+        or name:match("^Profession") ~= nil
+        or name:match("TradeSkill") ~= nil
+end
+
 local EXCLUDED_PREFIXES = {
     { prefix = "EditMode", reason = "protected" },
     { prefix = "ActionButton", reason = "protected" },
@@ -45,6 +52,16 @@ function Registry:Classify(frame)
     if not frame or not frame.GetName then return nil end
     local name = frame:GetName()
     if type(name) ~= "string" or name == "" then return nil end
+
+    if Addon.runtime and Addon.runtime.isForever and isForeverProfessionsFrame(name) then
+        return {
+            name = name,
+            controller = nil,
+            family = "forever-professions",
+            route = false,
+            reason = "Blizzard-owned on Forever; movement is disabled by default",
+        }
+    end
 
     for _, excluded in ipairs(EXCLUDED_PREFIXES) do
         if name:sub(1, #excluded.prefix) == excluded.prefix then

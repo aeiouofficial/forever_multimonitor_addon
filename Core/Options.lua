@@ -102,20 +102,20 @@ function Options:Refresh()
     if not self.frame or not Addon.db then return end
     local profile = Addon:GetProfile()
     self.enabledButton.label:SetText(Addon.db.enabled and "Disable layout" or "Enable layout")
-    self.sideLeft.label:SetText(profile.mainhandSide == "left" and "[ Mainhand left ]" or "Mainhand left")
-    self.sideRight.label:SetText(profile.mainhandSide == "right" and "[ Mainhand right ]" or "Mainhand right")
+    self.sideLeft.label:SetText(profile.mainMonitorSide == "left" and "[ MainMonitor left ]" or "MainMonitor left")
+    self.sideRight.label:SetText(profile.mainMonitorSide == "right" and "[ MainMonitor right ]" or "MainMonitor right")
     self.rawMouseButton.label:SetText("Raw mouse: " .. (profile.rawMouseEnabled and "ON" or "OFF"))
     if self.mapEscapeButton then self.mapEscapeButton.label:SetText("Map ESC: " .. (profile.mapStaysOpenOnEscape and "Keep open" or "Normal")) end
     if self.nativeButton then self.nativeButton.label:SetText(Addon.nativeGeometry and "Calibrate from displays" or "Native: manual only") end
     if self.themeButton then self.themeButton.label:SetText("Theme: " .. (THEMES[profile.themePreset] or THEMES.midnight).label) end
     if self.backgroundOpacitySlider then self.backgroundOpacitySlider.slider:SetValue(profile.backgroundOpacity or 0.92) end
     self.profileLabel:SetText("Profile: " .. Addon:GetActiveProfileName() .. " (" .. tostring(#Addon:GetProfileNames()) .. ")")
-    self.widthSlider.slider:SetValue(profile.mainhandWidthPercent)
+    self.widthSlider.slider:SetValue(profile.mainMonitorWidthPercent)
     self.seamSlider.slider:SetValue(profile.seamUiUnits)
     self.scaleSlider.slider:SetValue(profile.panelScale)
     local layout, err = Addon.Geometry:Calculate(profile)
     if layout then
-        self.status:SetText(string.format("%s | Canvas %.0f x %.0f | Offhand %.0f UI units", Addon.db.enabled and "ACTIVE" or "DISABLED", layout.canvasWidth, layout.canvasHeight, layout.workspace.width))
+        self.status:SetText(string.format("%s | Canvas %.0f x %.0f | SecondMonitor1 %.0f UI units", Addon.db.enabled and "ACTIVE" or "DISABLED", layout.canvasWidth, layout.canvasHeight, layout.secondMonitor1.width))
     else
         self.status:SetText("Layout unavailable: " .. tostring(err))
     end
@@ -148,6 +148,10 @@ end
 
 function Options:StartPreview()
     if self.previewActive then return false end
+    if InCombatLockdown and InCombatLockdown() then
+        Addon:Print("Preview unavailable during combat.")
+        return false
+    end
     if not C_Timer or type(C_Timer.After) ~= "function" then
         Addon:Print("Preview unavailable: client timer API is missing.")
         return false
@@ -155,8 +159,15 @@ function Options:StartPreview()
     self.previewGeneration = (self.previewGeneration or 0) + 1
     local generation = self.previewGeneration
     self.previewWasEnabled = Addon.db and Addon.db.enabled == true or false
+    local applied
+    if not Addon.db.enabled then applied = Addon:SetEnabled(true) else applied = Addon:Apply() end
+    if applied ~= true then
+        self.previewWasEnabled = nil
+        self:Refresh()
+        Addon:Print("Preview could not start; layout apply failed.")
+        return false
+    end
     self.previewActive = true
-    if not Addon.db.enabled then Addon:SetEnabled(true) else Addon:Apply() end
     self:Refresh()
     self.status:SetText("PREVIEW ACTIVE - confirm within 15 seconds or it will revert.")
     C_Timer.After(15, function()
@@ -172,12 +183,18 @@ end
 
 function Options:KeepPreview()
     if not self.previewActive then return false end
+    local applied
+    if Addon.db and not Addon.db.enabled then applied = Addon:SetEnabled(true) else applied = Addon:Apply() end
+    if applied ~= true then
+        self:CancelPreview(true)
+        Addon:Print("Preview confirmation failed; layout restored.")
+        return false
+    end
     self.previewGeneration = (self.previewGeneration or 0) + 1
     self.previewActive = false
     self.previewWasEnabled = nil
     if self.previewButton then self.previewButton:Show() end
     if self.keepPreviewButton then self.keepPreviewButton:Hide() end
-    if Addon.db and not Addon.db.enabled then Addon:SetEnabled(true) else Addon:Apply() end
     self:Refresh()
     Addon:Print("Layout preview confirmed.")
     return true
@@ -195,8 +212,8 @@ local WIZARD_STEPS = {
 The helper saves the original window state. Run restore when you want to return to the original window placement.]=],
     },
     {
-        title = "Setup 2 / 3 - Mainhand",
-        body = [=[Choose which side contains the Mainhand view and set its share of the combined logical canvas. The remaining area becomes the Offhand workspace. You can change these values later in the dashboard.]=],
+        title = "Setup 2 / 3 - MainMonitor",
+        body = [=[Choose which side contains MainMonitor and set its share of the combined logical canvas. The remaining area becomes SecondMonitor1. You can change these values later in the dashboard.]=],
     },
     {
         title = "Setup 3 / 3 - Apply",
@@ -215,9 +232,9 @@ function Options:RefreshWizard()
     self.wizard.next.label:SetText(step == #WIZARD_STEPS and "Finish" or "Next")
     if step == 2 then
         local profile = Addon:GetProfile()
-        self.wizard.sideLeft.label:SetText(profile.mainhandSide == "left" and "[ Mainhand left ]" or "Mainhand left")
-        self.wizard.sideRight.label:SetText(profile.mainhandSide == "right" and "[ Mainhand right ]" or "Mainhand right")
-        self.wizard.widthSlider.slider:SetValue(profile.mainhandWidthPercent)
+        self.wizard.sideLeft.label:SetText(profile.mainMonitorSide == "left" and "[ MainMonitor left ]" or "MainMonitor left")
+        self.wizard.sideRight.label:SetText(profile.mainMonitorSide == "right" and "[ MainMonitor right ]" or "MainMonitor right")
+        self.wizard.widthSlider.slider:SetValue(profile.mainMonitorWidthPercent)
         self.wizard.config:Show()
     else
         self.wizard.config:Hide()
@@ -270,18 +287,18 @@ function Options:ShowWizard()
         wizard.config = CreateFrame("Frame", nil, wizard)
         wizard.config:SetPoint("TOPLEFT", 16, -190)
         wizard.config:SetSize(440, 120)
-        wizard.sideLeft = makeButton(wizard.config, "Mainhand left", 150, 28, function()
-            Addon:SetProfileValue("mainhandSide", "left")
+        wizard.sideLeft = makeButton(wizard.config, "MainMonitor left", 150, 28, function()
+            Addon:SetProfileValue("mainMonitorSide", "left")
             self:RefreshWizard()
         end)
         wizard.sideLeft:SetPoint("TOPLEFT", 0, 0)
-        wizard.sideRight = makeButton(wizard.config, "Mainhand right", 150, 28, function()
-            Addon:SetProfileValue("mainhandSide", "right")
+        wizard.sideRight = makeButton(wizard.config, "MainMonitor right", 150, 28, function()
+            Addon:SetProfileValue("mainMonitorSide", "right")
             self:RefreshWizard()
         end)
         wizard.sideRight:SetPoint("TOPLEFT", 170, 0)
-        wizard.widthSlider = makeSlider(wizard.config, "Mainhand width", 25, 90, 1, function(v) return string.format("%.0f%%", v) end, function(v)
-            Addon:SetProfileValue("mainhandWidthPercent", v)
+        wizard.widthSlider = makeSlider(wizard.config, "MainMonitor width", 25, 90, 1, function(v) return string.format("%.0f%%", v) end, function(v)
+            Addon:SetProfileValue("mainMonitorWidthPercent", v)
         end)
         wizard.widthSlider:SetPoint("TOPLEFT", 0, -42)
 
@@ -305,9 +322,70 @@ function Options:ShowWizard()
     self.wizard:Show()
 end
 
+function Options:RegisterCategory()
+    if self.categoryRegistered then return true end
+    local frame = self:Create()
+    frame.name = "Forever MultiMonitor"
+
+    if type(Settings) == "table"
+        and type(Settings.RegisterCanvasLayoutCategory) == "function"
+        and type(Settings.RegisterAddOnCategory) == "function" then
+        local categoryCallOK, category = pcall(Settings.RegisterCanvasLayoutCategory, frame, frame.name)
+        if categoryCallOK and category then
+            local registered = pcall(Settings.RegisterAddOnCategory, category)
+            if registered then
+                self.settingsCategory = category
+                self.categoryRegistered = true
+                return true
+            end
+        end
+    end
+
+    if type(InterfaceOptions_AddCategory) == "function" then
+        local registered, err = pcall(InterfaceOptions_AddCategory, frame)
+        if registered then
+            self.legacyCategory = frame
+            self.categoryRegistered = true
+            return true
+        end
+        self.categoryRegistrationError = tostring(err)
+    end
+    return false, self.categoryRegistrationError or "No supported AddOns settings category API is available."
+end
+
+function Options:OpenSettings()
+    local frame = self:Create()
+    if not self.categoryRegistered then self:RegisterCategory() end
+
+    local category = self.settingsCategory
+    local categoryId = category and (category.ID or category.id)
+    if categoryId and type(Settings) == "table" and type(Settings.OpenToCategory) == "function" then
+        local opened = pcall(Settings.OpenToCategory, categoryId)
+        if opened then
+            frame:Show()
+            self:Refresh()
+            return true
+        end
+    end
+
+    if self.legacyCategory and type(InterfaceOptionsFrame_OpenToCategory) == "function" then
+        local opened = pcall(InterfaceOptionsFrame_OpenToCategory, self.legacyCategory)
+        if opened then
+            frame:Show()
+            self:Refresh()
+            return true
+        end
+    end
+
+    frame:Show()
+    self:Refresh()
+    return false
+end
+
 function Options:Create()
     if self.frame then return self.frame end
     local frame = CreateFrame("Frame", "ForeverMultiMonitorOptionsFrame", UIParent)
+    frame.name = "Forever MultiMonitor"
     frame:SetSize(500, 610)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("DIALOG")
@@ -338,9 +416,9 @@ function Options:Create()
         self:Refresh()
     end)
     self.enabledButton:SetPoint("TOPLEFT", 22, -78)
-    self.sideLeft = makeButton(frame, "Mainhand left", 140, 28, function() Addon:SetProfileValue("mainhandSide", "left"); if Addon.db.enabled then Addon:Apply() end; self:Refresh() end)
+    self.sideLeft = makeButton(frame, "MainMonitor left", 140, 28, function() Addon:SetProfileValue("mainMonitorSide", "left"); if Addon.db.enabled then Addon:Apply() end; self:Refresh() end)
     self.sideLeft:SetPoint("TOPLEFT", 190, -78)
-    self.sideRight = makeButton(frame, "Mainhand right", 140, 28, function() Addon:SetProfileValue("mainhandSide", "right"); if Addon.db.enabled then Addon:Apply() end; self:Refresh() end)
+    self.sideRight = makeButton(frame, "MainMonitor right", 140, 28, function() Addon:SetProfileValue("mainMonitorSide", "right"); if Addon.db.enabled then Addon:Apply() end; self:Refresh() end)
     self.sideRight:SetPoint("TOPLEFT", 340, -78)
 
     self.settings = CreateFrame("Frame", nil, frame)
@@ -382,7 +460,7 @@ function Options:Create()
     self.profileDeleteButton:SetPoint("TOPLEFT", 390, -108)
     self.settings:SetPoint("TOPLEFT", 22, -146)
     self.settings:SetSize(450, 300)
-    self.widthSlider = makeSlider(self.settings, "Mainhand width", 25, 90, 1, function(v) return string.format("%.0f%%", v) end, function(v) Addon:SetProfileValue("mainhandWidthPercent", v) end)
+    self.widthSlider = makeSlider(self.settings, "MainMonitor width", 25, 90, 1, function(v) return string.format("%.0f%%", v) end, function(v) Addon:SetProfileValue("mainMonitorWidthPercent", v) end)
     self.widthSlider:SetPoint("TOPLEFT", 0, 0)
     self.seamSlider = makeSlider(self.settings, "Seam offset (logical UI units)", 0, 100, 1, function(v) return string.format("%.0f", v) end, function(v) Addon:SetProfileValue("seamUiUnits", v) end)
     self.seamSlider:SetPoint("TOPLEFT", 0, -64)
@@ -430,7 +508,7 @@ function Options:Create()
     self.keepPreviewButton = makeButton(frame, "Keep layout", 110, 28, function() self:KeepPreview() end)
     self.keepPreviewButton:SetPoint("BOTTOMLEFT", 132, 94)
     self.keepPreviewButton:Hide()
-    local footer = makeText(frame, "/fmm commands remain available. Native monitor control requires WindowsHelper.", 10)
+    local footer = makeText(frame, "/forevermultimonitor commands remain available. Native monitor control requires WindowsHelper.", 10)
     footer:SetPoint("BOTTOMLEFT", 22, 28)
     self.frame = frame
     UISpecialFrames = UISpecialFrames or {}

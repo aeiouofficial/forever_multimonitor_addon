@@ -24,6 +24,12 @@ local function frameName(frame)
     return frame and frame.GetName and frame:GetName() or "unnamed frame"
 end
 
+local function isForbidden(frame)
+    if not frame or type(frame.IsForbidden) ~= "function" then return false end
+    local ok, forbidden = pcall(frame.IsForbidden, frame)
+    return not ok or forbidden == true
+end
+
 local function finiteNumber(value)
     return type(value) == "number" and value == value and value < math.huge and value > -math.huge
 end
@@ -83,6 +89,7 @@ end
 
 function Panels:Place(frame, layout, preferred)
     if not frame or not frame.IsShown or not frame:IsShown() then return false end
+    if isForbidden(frame) then return false end
     if InCombatLockdown and InCombatLockdown() then
         Addon:RunWhenSafe(function() Panels:Place(frame, layout) end, "panel:" .. tostring(frame))
         return false
@@ -94,8 +101,39 @@ function Panels:Place(frame, layout, preferred)
     local requestedScale = originalScale * (profile.panelScale or 1)
     local frameWidth = frame.GetWidth and frame:GetWidth() or 0
     local frameHeight = frame.GetHeight and frame:GetHeight() or 0
-    local widthFit = frameWidth > 0 and layout.workspace.width / frameWidth or requestedScale
-    local heightFit = frameHeight > 0 and layout.canvasHeight / frameHeight or requestedScale
+    local secondMonitor1 = type(layout) == "table" and layout.secondMonitor1
+    if type(secondMonitor1) ~= "table" then
+        Addon:ReportError("Panel has invalid SecondMonitor1 bounds for " .. frameName(frame), "SecondMonitor1 geometry is unavailable")
+        return false
+    end
+    local secondMonitor1Width = secondMonitor1.width
+    local secondMonitor1Bottom = finiteNumber(secondMonitor1.bottom) and secondMonitor1.bottom or 0
+    local secondMonitor1Top = finiteNumber(secondMonitor1.top) and secondMonitor1.top
+        or (secondMonitor1Bottom + (finiteNumber(secondMonitor1.height) and secondMonitor1.height or layout.canvasHeight))
+    local secondMonitor1Height = finiteNumber(secondMonitor1.height) and secondMonitor1.height or (secondMonitor1Top - secondMonitor1Bottom)
+    if not finiteNumber(secondMonitor1Width) or secondMonitor1Width <= 0
+        or not finiteNumber(secondMonitor1Height) or secondMonitor1Height <= 0 then
+        Addon:ReportError("Panel has invalid SecondMonitor1 bounds for " .. frameName(frame), tostring(secondMonitor1Width) .. "x" .. tostring(secondMonitor1Height))
+        return false
+    end
+
+    local parentScale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+    local currentScale = frame.GetScale and frame:GetScale() or 1
+    local currentEffectiveScale = frame.GetEffectiveScale and frame:GetEffectiveScale() or parentScale * currentScale
+    if not finiteNumber(parentScale) or parentScale <= 0
+        or not finiteNumber(currentScale) or currentScale <= 0
+        or not finiteNumber(currentEffectiveScale) or currentEffectiveScale <= 0 then
+        Addon:ReportError("Panel has invalid effective scale for " .. frameName(frame), currentEffectiveScale)
+        return false
+    end
+    local inheritedScale = currentEffectiveScale / parentScale / currentScale
+    if not finiteNumber(inheritedScale) or inheritedScale <= 0 then
+        Addon:ReportError("Panel has invalid relative scale for " .. frameName(frame), inheritedScale)
+        return false
+    end
+
+    local widthFit = frameWidth > 0 and secondMonitor1Width / (frameWidth * inheritedScale) or requestedScale
+    local heightFit = frameHeight > 0 and secondMonitor1Height / (frameHeight * inheritedScale) or requestedScale
     local scale = math.min(requestedScale, widthFit, heightFit)
     if preferred and finiteNumber(preferred.scale) and preferred.scale > 0 then
         scale = math.min(scale, preferred.scale)
@@ -106,26 +144,28 @@ function Panels:Place(frame, layout, preferred)
     end
     local savedPosition = self:GetSavedPosition(frame)
     local centerX = savedPosition and savedPosition.x * layout.canvasWidth
-        or (preferred and preferred.x) or layout.workspace.centerX
+        or (preferred and preferred.x) or layout.secondMonitor1.centerX
     local centerY = savedPosition and savedPosition.y * layout.canvasHeight
-        or (preferred and preferred.y) or layout.workspace.centerY
+        or (preferred and preferred.y) or layout.secondMonitor1.centerY
 
-    -- Clamp persisted drag coordinates to the currently available Offhand workspace,
+    -- Clamp persisted drag coordinates to the currently available SecondMonitor1,
     -- so a removed/rearranged monitor cannot strand a window outside the canvas.
-    local halfWidth = frameWidth * scale / 2
-    local halfHeight = frameHeight * scale / 2
-    local workspaceLeft = layout.workspace.left
-    if not finiteNumber(workspaceLeft) then
-        workspaceLeft = layout.canvasWidth / 2 + layout.workspace.centerX - layout.workspace.width / 2
+    local halfWidth = frameWidth * inheritedScale * scale / 2
+    local halfHeight = frameHeight * inheritedScale * scale / 2
+    local secondMonitor1Left = layout.secondMonitor1.left
+    if not finiteNumber(secondMonitor1Left) then
+        secondMonitor1Left = layout.canvasWidth / 2 + layout.secondMonitor1.centerX - layout.secondMonitor1.width / 2
     end
-    local workspaceRight = layout.workspace.right or (workspaceLeft + layout.workspace.width)
-    local minX = workspaceLeft - layout.canvasWidth / 2 + halfWidth
-    local maxX = workspaceRight - layout.canvasWidth / 2 - halfWidth
-    local minY = -layout.canvasHeight / 2 + halfHeight
-    local maxY = layout.canvasHeight / 2 - halfHeight
-    if minX > maxX then centerX = layout.workspace.centerX
+    local secondMonitor1Right = layout.secondMonitor1.right or (secondMonitor1Left + layout.secondMonitor1.width)
+    local minX = secondMonitor1Left - layout.canvasWidth / 2 + halfWidth
+    local maxX = secondMonitor1Right - layout.canvasWidth / 2 - halfWidth
+    local minY = secondMonitor1Bottom - layout.canvasHeight / 2 + halfHeight
+    local maxY = secondMonitor1Top - layout.canvasHeight / 2 - halfHeight
+    if minX > maxX then centerX = layout.secondMonitor1.centerX
     else centerX = math.max(minX, math.min(maxX, centerX)) end
-    if minY > maxY then centerY = 0
+    local secondMonitor1CenterY = finiteNumber(secondMonitor1.centerY) and secondMonitor1.centerY
+        or ((secondMonitor1Bottom + secondMonitor1Top) / 2 - layout.canvasHeight / 2)
+    if minY > maxY then centerY = secondMonitor1CenterY
     else centerY = math.max(minY, math.min(maxY, centerY)) end
 
     local beforePoints = capture(frame)
@@ -133,7 +173,8 @@ function Panels:Place(frame, layout, preferred)
     local ok, err = pcall(function()
         frame:ClearAllPoints()
         frame:SetScale(scale)
-        frame:SetPoint("CENTER", UIParent, "CENTER", centerX, centerY)
+        local pointScale = inheritedScale * scale
+        frame:SetPoint("CENTER", UIParent, "CENTER", centerX / pointScale, centerY / pointScale)
     end)
     if not ok then
         local restored, restoreError = pcall(function()
@@ -153,24 +194,48 @@ end
 function Panels:Restore(frame)
     local points = self.originalPoints[frame]
     if not points then return true end
+    if isForbidden(frame) then
+        Addon:ReportError("Panel restore skipped for forbidden frame " .. frameName(frame), "Blizzard retains ownership")
+        return false
+    end
     if InCombatLockdown and InCombatLockdown() then
         Addon:RunWhenSafe(function() Panels:Restore(frame) end, "restore:" .. tostring(frame))
         return false
     end
 
-    frame:ClearAllPoints()
-    if #points > 0 then
+    local beforePoints = capture(frame)
+    local beforeScale = frame.GetScale and frame:GetScale() or 1
+    local ok, err = pcall(function()
+        frame:ClearAllPoints()
         for _, anchor in ipairs(points) do
             frame:SetPoint(anchor[1], anchor[2], anchor[3], anchor[4], anchor[5])
         end
+        frame:SetScale(self.originalScales[frame] or 1)
+    end)
+    if not ok then
+        local reverted, revertError = pcall(function()
+            frame:ClearAllPoints()
+            for _, anchor in ipairs(beforePoints) do
+                frame:SetPoint(anchor[1], anchor[2], anchor[3], anchor[4], anchor[5])
+            end
+            frame:SetScale(beforeScale)
+        end)
+        Addon:ReportError("Panel restore failed for " .. frameName(frame),
+            tostring(err) .. (reverted and "; current layout retained" or "; rollback failed: " .. tostring(revertError)))
+        return false
     end
-    frame:SetScale(self.originalScales[frame] or 1)
     self.originalPoints[frame] = nil
     self.originalScales[frame] = nil
     return true
 end
 
 function Panels:RouteFrame(frame, layout)
+    if isForbidden(frame) then
+        self.excluded[frame] = {
+            name = frameName(frame), controller = nil, route = false, reason = "forbidden",
+        }
+        return true
+    end
     local definition = self.assignments[frame] or Addon.PanelRegistry:Classify(frame)
     if not definition or definition.route == false then return false end
     local controller = Addon.PanelControllers:Get(definition.controller)
@@ -239,7 +304,7 @@ function Panels:RouteIfEnabled(frame)
 end
 
 function Panels:Hook(frame)
-    if not frame or self.hooked[frame] or not frame.HookScript then return false end
+    if not frame or isForbidden(frame) or self.hooked[frame] or not frame.HookScript then return false end
     self.hooked[frame] = true
     self.discoveryCount = self.discoveryCount + 1
     frame:HookScript("OnShow", function(shownFrame) Panels:RouteIfEnabled(shownFrame) end)
@@ -261,6 +326,12 @@ end
 
 function Panels:DiscoverFrame(frame, routeExisting)
     if not frame or not frame.HookScript or not frame.IsShown then return false end
+    if isForbidden(frame) then
+        self.excluded[frame] = {
+            name = frameName(frame), controller = nil, route = false, reason = "forbidden",
+        }
+        return false
+    end
     if frame.GetName and frame:GetName() == "EditModeManagerFrame" then
         self:InstallEditModeHook(frame)
         return false
@@ -319,29 +390,40 @@ function Panels:Initialize()
 end
 
 function Panels:Apply(layout)
-    if not layout then return end
+    if not layout then return false end
     self:InstallEditModeHook(_G.EditModeManagerFrame)
     if self:IsEditModeOpen() then
         if not self.editModeWarningShown then
             Addon:Print("Edit Mode open: supported panels will not be repositioned until you close it.")
             self.editModeWarningShown = true
         end
-        return
+        return true
     end
     self.editModeWarningShown = false
     self:DiscoverAndPlace()
-    for frame in pairs(self.hooked) do
-        if frame.IsShown and frame:IsShown() then self:RouteFrame(frame, layout) end
+    local succeeded = true
+    for frame in pairs(self.assignments) do
+        if frame.IsShown and frame:IsShown() and not self:RouteFrame(frame, layout) then
+            succeeded = false
+        end
     end
+    return succeeded
 end
 
 function Panels:RestoreAll()
     local frames = {}
     for frame in pairs(self.originalPoints) do frames[#frames + 1] = frame end
+    local succeeded = true
     for _, frame in ipairs(frames) do
         local definition = self.assignments[frame]
         local controller = definition and Addon.PanelControllers:Get(definition.controller)
-        local ok, err = pcall(controller and controller.Restore or self.Restore, controller or self, frame)
-        if not ok then Addon:ReportError("Panel restore failed for " .. frameName(frame), err) end
+        local ok, restored = pcall(controller and controller.Restore or self.Restore, controller or self, frame)
+        if not ok then
+            Addon:ReportError("Panel restore failed for " .. frameName(frame), restored)
+            succeeded = false
+        elseif restored ~= true then
+            succeeded = false
+        end
     end
+    return succeeded
 end

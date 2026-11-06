@@ -16,6 +16,11 @@ local function capturePoints(frame)
     return points
 end
 
+local function finiteNumber(value)
+    return type(value) == "number" and value == value
+        and value ~= math.huge and value ~= -math.huge
+end
+
 function Viewport:Capture()
     if self.originalPoints then return end
     if not WorldFrame or not WorldFrame.GetNumPoints then
@@ -29,27 +34,45 @@ end
 
 function Viewport:Apply(layout)
     if not layout then error("Cannot apply viewport without geometry") end
+    local canvasWidth = layout.canvasWidth or (UIParent and UIParent.GetWidth and UIParent:GetWidth())
+    local canvasHeight = layout.canvasHeight or (UIParent and UIParent.GetHeight and UIParent:GetHeight())
+    local mainMonitor = layout.mainMonitor
+    if type(mainMonitor) ~= "table" then return false, "Invalid MainMonitor geometry" end
+    local left, right = mainMonitor.left, mainMonitor.right
+    local bottom = mainMonitor.bottom
+    if bottom == nil then bottom = 0 end
+    local top = mainMonitor.top
+    if top == nil then top = canvasHeight end
+    if not finiteNumber(canvasWidth) or not finiteNumber(canvasHeight)
+        or canvasWidth <= 0 or canvasHeight <= 0
+        or not finiteNumber(left) or not finiteNumber(right)
+        or not finiteNumber(bottom) or not finiteNumber(top)
+        or left < 0 or bottom < 0 or right > canvasWidth or top > canvasHeight
+        or right <= left or top <= bottom then
+        return false, "Invalid MainMonitor geometry"
+    end
     if InCombatLockdown and InCombatLockdown() then
         Addon:RunWhenSafe(function() Addon:RefreshLayoutState() end, "layout-state")
         return false
     end
+    if not UIParent then return false, "UIParent is unavailable" end
+    local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+    local frameScale = WorldFrame and WorldFrame.GetEffectiveScale and WorldFrame:GetEffectiveScale() or parentScale
+    if not finiteNumber(parentScale) or not finiteNumber(frameScale) or parentScale <= 0 or frameScale <= 0 then
+        return false, "Invalid viewport effective scale"
+    end
+    local pointScale = parentScale / frameScale
     self:Capture()
     -- Keep an independent snapshot of the current anchors for transactional rollback.
     local beforePoints = capturePoints(WorldFrame)
     local wasApplied = self.applied
     local beforeUserPlaced = WorldFrame.IsUserPlaced and WorldFrame:IsUserPlaced() == true
-    local canvasWidth = layout.canvasWidth or (UIParent and UIParent.GetWidth and UIParent:GetWidth())
-    if type(canvasWidth) ~= "number" or canvasWidth <= 0 then return false, "UI canvas width unavailable" end
-    if type(layout.mainhand) ~= "table" or type(layout.mainhand.left) ~= "number"
-        or type(layout.mainhand.right) ~= "number" or layout.mainhand.right <= layout.mainhand.left then
-        return false, "Invalid Mainhand geometry"
-    end
     local ok, err = pcall(function()
         -- The crop must never become a persisted default WoW viewport.
         if WorldFrame.SetUserPlaced then WorldFrame:SetUserPlaced(false) end
         WorldFrame:ClearAllPoints()
-        WorldFrame:SetPoint("TOPLEFT", layout.mainhand.left, 0)
-        WorldFrame:SetPoint("BOTTOMRIGHT", layout.mainhand.right - canvasWidth, 0)
+        WorldFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * pointScale, bottom * pointScale)
+        WorldFrame:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", right * pointScale, top * pointScale)
     end)
     if not ok then
         local restored, restoreError = pcall(function()

@@ -7,8 +7,8 @@ function Addon:RecordAppliedLayout(layout)
     self.db.lastAppliedLayout = {
         canvasWidth = layout.canvasWidth,
         canvasHeight = layout.canvasHeight,
-        mainhandSide = self:GetProfile().mainhandSide,
-        mainhandWidthPercent = self:GetProfile().mainhandWidthPercent,
+        mainMonitorSide = self:GetProfile().mainMonitorSide,
+        mainMonitorWidthPercent = self:GetProfile().mainMonitorWidthPercent,
         seamUiUnits = self:GetProfile().seamUiUnits,
     }
     self.db.lastAppliedBuild = self.runtime and self.runtime.build or "unknown"

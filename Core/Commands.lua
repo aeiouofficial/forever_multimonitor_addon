@@ -1,7 +1,8 @@
 local _, Addon = ...
+local COMMAND = "/forevermultimonitor"
 
 local function printHelp()
-    Addon:Print("Commands: /fmm status | diagnostics | apply | enable | disable | side left|right | width 25-90 | seam 0-100 | scale 0.5-1.5 | rawmouse on|off | mapescape on|off | native status|apply | profile list|create|use|delete | config | reset")
+    Addon:Print("Commands: " .. COMMAND .. " [help|wizard|gather|diag|status|diagnostics|apply|enable|disable|side left|right|width 25-90|seam 0-100|scale 0.5-1.5|rawmouse on|off|mapescape on|off|native status|apply|profile list|create|use|delete|config|reset]")
 end
 
 local function countEntries(collection)
@@ -25,8 +26,8 @@ local function printDiagnostics()
     Addon:Print("Profile: " .. tostring(Addon:GetActiveProfileName()) .. " | layout enabled: " .. tostring(Addon.db and Addon.db.enabled) .. " | raw mouse: " .. tostring(profile.rawMouseEnabled))
     Addon:Print("Map ESC protection: " .. tostring(profile.mapStaysOpenOnEscape) .. " | native handoff: " .. tostring(Addon.nativeGeometryStatus or "manual"))
     if layout then
-        Addon:Print(string.format("Geometry: canvas %.0f x %.0f | Mainhand %.0f%% %s | Offhand %.0f UI units",
-            layout.canvasWidth, layout.canvasHeight, profile.mainhandWidthPercent, profile.mainhandSide, layout.workspace.width))
+        Addon:Print(string.format("Geometry: canvas %.0f x %.0f | MainMonitor %.0f%% %s | SecondMonitor1 %.0f UI units",
+            layout.canvasWidth, layout.canvasHeight, profile.mainMonitorWidthPercent, profile.mainMonitorSide, layout.secondMonitor1.width))
     else
         Addon:Print("Geometry unavailable: " .. tostring(geometryError))
     end
@@ -39,11 +40,11 @@ local function printStatus()
     local runtime = Addon.runtime or {}
 
     Addon:Print("Enabled: " .. tostring(Addon.db.enabled))
-    Addon:Print("Mainhand: " .. profile.mainhandSide .. " / " .. tostring(profile.mainhandWidthPercent) .. "%")
+    Addon:Print("MainMonitor side: " .. profile.mainMonitorSide .. " / " .. tostring(profile.mainMonitorWidthPercent) .. "%")
     Addon:Print("Seam offset: " .. tostring(profile.seamUiUnits) .. " UI units | panel scale: " .. tostring(profile.panelScale) .. " | raw mouse: " .. tostring(profile.rawMouseEnabled))
     Addon:Print("Client: " .. tostring(runtime.version or "unknown") .. " build " .. tostring(runtime.build or "unknown") .. " / interface " .. tostring(runtime.interface or "unknown"))
     if layout then
-        Addon:Print(string.format("Canvas: %.0f x %.0f; Offhand workspace: %.0f logical UI units", layout.canvasWidth, layout.canvasHeight, layout.workspace.width))
+        Addon:Print(string.format("Canvas: %.0f x %.0f; SecondMonitor1 workspace: %.0f logical UI units", layout.canvasWidth, layout.canvasHeight, layout.secondMonitor1.width))
     else
         Addon:Print("Geometry unavailable: " .. tostring(err))
     end
@@ -51,6 +52,12 @@ local function printStatus()
 end
 
 function Addon:HandleCommand(message)
+    message = type(message) == "string" and message or ""
+    message = message:gsub("^%s+", ""):gsub("%s+$", "")
+    if message == "" then
+        if self.Options then self.Options:Toggle() end
+        return
+    end
     local command, value = message:match("^(%S+)%s*(.-)$")
     command = (command or "help"):lower()
 
@@ -71,59 +78,75 @@ function Addon:HandleCommand(message)
             local ok = self:DeleteProfile(name)
             Addon:Print(ok and ("Deleted profile " .. name) or "Cannot delete Default, the active profile, or a missing profile.")
         else
-            Addon:Print("Usage: /fmm profile list|create <name>|use <name>|delete <name>")
+            Addon:Print("Usage: " .. COMMAND .. " profile list|create <name>|use <name>|delete <name>")
         end
     elseif command == "config" then
-        self.Options:Toggle()
+        if self.Options then self.Options:Toggle() end
+    elseif command == "wizard" then
+        if self.Options then self.Options:ShowWizard() end
+    elseif command == "gather" then
+        local moved, skipped
+        if self.Gather then moved, skipped = self.Gather:Run() end
+        if moved == nil then
+            self:Print("Gather unavailable: " .. tostring(skipped or "layout geometry could not be calculated"))
+        elseif moved == false then
+            self:Print("Gather skipped during combat.")
+        else
+            self:Print(string.format("Gathered %d off-screen panel(s); skipped %d.", moved, skipped or 0))
+        end
     elseif command == "status" then
         printStatus()
-    elseif command == "diagnostics" then
+    elseif command == "diagnostics" or command == "diag" then
         printDiagnostics()
     elseif command == "enable" then
         if self.Options then self.Options:CancelPreview(false) end
-        self:SetEnabled(true)
+        local applied = self:SetEnabled(true)
         if self.Options then self.Options:Refresh() end
-        self:Print("Dual-monitor layout enabled.")
+        self:Print(applied and "Dual-monitor layout enabled." or
+            ((InCombatLockdown and InCombatLockdown()) and "Layout enable queued until combat ends." or "Layout enable failed; check the last error."))
     elseif command == "disable" then
         if self.Options then self.Options:CancelPreview(false) end
-        self:SetEnabled(false)
+        local restored = self:SetEnabled(false)
         if self.Options then self.Options:Refresh() end
-        self:Print("Dual-monitor layout disabled.")
+        self:Print(restored and "Dual-monitor layout disabled and restored." or
+            ((InCombatLockdown and InCombatLockdown()) and "Layout disable queued until combat ends." or "Layout disable requested, but restoration failed; check the last error."))
     elseif command == "apply" then
         if not self.db.enabled then
-            self:Print("Layout is disabled. Use /fmm enable first.")
+            self:Print("Layout is disabled. Use " .. COMMAND .. " enable first.")
         elseif self.Options and self.Options.previewActive then
-            self.Options:KeepPreview()
-            self:Print("Layout preview confirmed.")
+            local confirmed = self.Options:KeepPreview()
+            if confirmed then self:Print("Layout preview confirmed.") end
         else
-            self:Apply()
-            self:Print("Layout apply requested.")
+            local applied = self:Apply()
+            self:Print(applied and "Layout applied." or
+                ((InCombatLockdown and InCombatLockdown()) and "Layout apply queued until combat ends." or "Layout apply failed; check the last error."))
         end
     elseif command == "reset" then
         if self.Options then self.Options:CancelPreview(false) end
-        self:SetEnabled(false)
+        local restored = self:SetEnabled(false)
         if self.Options then self.Options:Refresh() end
-        self:Print("Layout disabled; viewport and supported panels restored.")
+        self:Print(restored and "Layout disabled; viewport and supported panels restored." or
+            ((InCombatLockdown and InCombatLockdown()) and "Layout reset queued until combat ends." or "Layout disabled, but restoration failed; check the last error."))
     elseif command == "side" then
         value = value:lower()
         if value ~= "left" and value ~= "right" then
-            self:Print("Usage: /fmm side left|right")
+            self:Print("Usage: " .. COMMAND .. " side left|right")
             return
         end
-        self:SetProfileValue("mainhandSide", value)
+        self:SetProfileValue("mainMonitorSide", value)
         if self.db.enabled then self:Apply() end
     elseif command == "width" then
         local width = tonumber(value)
         if not width then
-            self:Print("Usage: /fmm width 25-90")
+            self:Print("Usage: " .. COMMAND .. " width 25-90")
             return
         end
-        self:SetProfileValue("mainhandWidthPercent", width)
+        self:SetProfileValue("mainMonitorWidthPercent", width)
         if self.db.enabled then self:Apply() end
     elseif command == "seam" then
         local seam = tonumber(value)
         if not seam then
-            self:Print("Usage: /fmm seam 0-100")
+            self:Print("Usage: " .. COMMAND .. " seam 0-100")
             return
         end
         self:SetProfileValue("seamUiUnits", seam)
@@ -131,7 +154,7 @@ function Addon:HandleCommand(message)
     elseif command == "scale" then
         local scale = tonumber(value)
         if not scale then
-            self:Print("Usage: /fmm scale 0.5-1.5")
+            self:Print("Usage: " .. COMMAND .. " scale 0.5-1.5")
             return
         end
         self:SetProfileValue("panelScale", scale)
@@ -145,12 +168,12 @@ function Addon:HandleCommand(message)
             self:Print(ok and message or ("Native calibration not applied: " .. tostring(message)))
             if self.Options then self.Options:Refresh() end
         else
-            self:Print("Usage: /fmm native status|apply")
+            self:Print("Usage: " .. COMMAND .. " native status|apply")
         end
     elseif command == "mapescape" then
         value = value:lower()
         if value ~= "on" and value ~= "off" then
-            self:Print("Usage: /fmm mapescape on|off")
+            self:Print("Usage: " .. COMMAND .. " mapescape on|off")
             return
         end
         self:SetProfileValue("mapStaysOpenOnEscape", value == "on")
@@ -160,7 +183,7 @@ function Addon:HandleCommand(message)
     elseif command == "rawmouse" then
         value = value:lower()
         if value ~= "on" and value ~= "off" then
-            self:Print("Usage: /fmm rawmouse on|off")
+            self:Print("Usage: " .. COMMAND .. " rawmouse on|off")
             return
         end
         self:SetProfileValue("rawMouseEnabled", value == "on")
@@ -173,7 +196,7 @@ function Addon:HandleCommand(message)
     end
 end
 
-SLASH_FOREVERMULTIMONITOR1 = "/fmm"
+SLASH_FOREVERMULTIMONITOR1 = "/forevermultimonitor"
 SlashCmdList = SlashCmdList or {}
 SlashCmdList.FOREVERMULTIMONITOR = function(message)
     Addon:HandleCommand(message or "")

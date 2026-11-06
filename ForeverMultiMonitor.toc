@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## AllowLoadGameType: camelot
 ## Title: Forever MultiMonitor
-## Notes: Companion-free dual-monitor workspace for World of Warcraft: Forever.
+## Notes: Independent multi-monitor workspace for World of Warcraft: Forever.
 ## Author: aeiouofficial
 ## Version: 0.4.1
 ## LoadSavedVariablesFirst: 1
@@ -20,6 +20,7 @@ Core\MapEscape.lua
 Core\PanelRegistry.lua
 Core\PanelControllers.lua
 Core\Panels.lua
+Core\Gather.lua
 Core\Recovery.lua
 Core\Commands.lua
 Core\Options.lua

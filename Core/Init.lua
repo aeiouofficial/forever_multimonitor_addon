@@ -10,8 +10,46 @@ Addon.frame:RegisterEvent("DISPLAY_SIZE_CHANGED")
 Addon.frame:RegisterEvent("PLAYER_LOGOUT")
 
 function Addon:RefreshLayoutState()
-    if self.db and self.db.enabled then self:Apply() else self:Reset() end
+    local ok
+    if self.db and self.db.enabled then ok = self:Apply() else ok = self:Reset() end
     if self.MapEscape then self.MapEscape:Sync() end
+    return ok
+end
+
+function Addon:RollbackFailedApply(reason)
+    if self.db then self.db.enabled = false end
+    local rollbackFailures = {}
+
+    local panelsCallOK, panelsRestored = pcall(self.Panels.RestoreAll, self.Panels)
+    if not panelsCallOK or panelsRestored ~= true then
+        rollbackFailures[#rollbackFailures + 1] = panelsCallOK and "panel restoration incomplete" or tostring(panelsRestored)
+    end
+
+    local viewportCallOK, viewportRestored, viewportError = pcall(self.Viewport.Restore, self.Viewport)
+    if not viewportCallOK or viewportRestored ~= true then
+        rollbackFailures[#rollbackFailures + 1] = viewportCallOK and ("viewport restoration failed: " .. tostring(viewportError or "restore returned false"))
+            or ("viewport restoration raised: " .. tostring(viewportRestored))
+    end
+
+    if self.RawMouse then
+        local rawCallOK, rawRestored = pcall(self.RawMouse.Restore, self.RawMouse)
+        if not rawCallOK or rawRestored ~= true then
+            rollbackFailures[#rollbackFailures + 1] = rawCallOK and "raw mouse restoration failed" or tostring(rawRestored)
+        end
+    end
+
+    if self.MapEscape then
+        local mapCallOK, mapRestored = pcall(self.MapEscape.Sync, self.MapEscape)
+        if not mapCallOK or mapRestored ~= true then
+            rollbackFailures[#rollbackFailures + 1] = mapCallOK and "map Escape state could not be restored" or tostring(mapRestored)
+        end
+    end
+
+    if #rollbackFailures > 0 then
+        reason = tostring(reason) .. "; rollback incomplete: " .. table.concat(rollbackFailures, "; ")
+    end
+    self:ReportError("Layout apply failed; layout disabled", reason)
+    return false, reason
 end
 
 function Addon:Apply()
@@ -24,40 +62,37 @@ function Addon:Apply()
 
     local layout, err = self.Geometry:Calculate(self:GetProfile())
     if not layout then
-        self:Print("Cannot apply layout: " .. tostring(err))
-        return false
+        return self:RollbackFailedApply("Cannot calculate layout: " .. tostring(err))
     end
 
     local successfullyApplied = false
     local dispatched = self:RunWhenSafe(function()
         if not (self.db and self.db.enabled) then
-            self:RefreshLayoutState()
-            return
+            return self:RefreshLayoutState()
         end
         local currentLayout, currentError = self.Geometry:Calculate(self:GetProfile())
         if not currentLayout then
-            self:Print("Cannot apply layout: " .. tostring(currentError))
-            return
+            return self:RollbackFailedApply("Cannot calculate layout: " .. tostring(currentError))
         end
         local callOK, applied, viewportError = pcall(self.Viewport.Apply, self.Viewport, currentLayout)
         local viewportOK = callOK and applied == true
         if not viewportOK then
-            self:ReportError("Viewport apply failed", callOK and (viewportError or "apply returned false") or applied)
-            if self.RawMouse then pcall(self.RawMouse.Restore, self.RawMouse) end
-            return
+            return self:RollbackFailedApply("Viewport apply failed: "
+                .. tostring(callOK and (viewportError or "apply returned false") or applied))
         end
-        self.Panels:Apply(currentLayout)
+        local panelsCallOK, panelsApplied = pcall(self.Panels.Apply, self.Panels, currentLayout)
+        if not panelsCallOK or panelsApplied ~= true then
+            return self:RollbackFailedApply("Panel routing failed: "
+                .. tostring(panelsCallOK and "one or more panels could not be placed" or panelsApplied))
+        end
 
-        if viewportOK then
-            self:RecordAppliedLayout(currentLayout)
-            if self.RawMouse then
-                local rawOK, rawError = pcall(self.RawMouse.Sync, self.RawMouse)
-                if not rawOK then self:ReportError("Raw mouse sync failed", rawError) end
-            end
-        elseif self.RawMouse then
-            pcall(self.RawMouse.Restore, self.RawMouse)
+        self:RecordAppliedLayout(currentLayout)
+        if self.RawMouse then
+            local rawOK, rawError = pcall(self.RawMouse.Sync, self.RawMouse)
+            if not rawOK then self:ReportError("Raw mouse sync failed", rawError) end
         end
         successfullyApplied = true
+        return true
     end, "layout-state")
     return dispatched and successfullyApplied
 end
@@ -70,19 +105,25 @@ function Addon:Reset()
 
     return self:RunWhenSafe(function()
         if self.db and self.db.enabled then
-            self:RefreshLayoutState()
-            return
+            return self:RefreshLayoutState()
         end
         local callOK, restored, viewportError = pcall(self.Viewport.Restore, self.Viewport)
         if not callOK or restored ~= true then
             self:ReportError("Viewport restore failed", callOK and (viewportError or "restore returned false") or restored)
-            return
         end
-        self.Panels:RestoreAll()
+        local panelsCallOK, panelsRestored = pcall(self.Panels.RestoreAll, self.Panels)
+        if not panelsCallOK or panelsRestored ~= true then
+            self:ReportError("Panel restore failed", panelsCallOK and "one or more panels could not be restored" or panelsRestored)
+        end
+        local rawRestored = true
         if self.RawMouse then
-            local rawOK, rawError = pcall(self.RawMouse.Restore, self.RawMouse)
-            if not rawOK then self:ReportError("Raw mouse restore failed", rawError) end
+            local rawOK, rawResult = pcall(self.RawMouse.Restore, self.RawMouse)
+            if not rawOK or rawResult ~= true then
+                self:ReportError("Raw mouse restore failed", rawResult)
+                rawRestored = false
+            end
         end
+        return callOK and restored == true and panelsCallOK and panelsRestored == true and rawRestored
     end, "layout-state")
 end
 
@@ -92,6 +133,14 @@ Addon.frame:SetScript("OnEvent", function(_, event, loadedName)
             Addon:InitializeConfig()
             Addon.Compat:Initialize()
             Addon:LoadNativeGeometry()
+            if Addon.Options and Addon.Options.RegisterCategory then
+                local registerCallOK, registered, registrationError = pcall(Addon.Options.RegisterCategory, Addon.Options)
+                if not registerCallOK then
+                    Addon:ReportError("Could not register AddOns settings entry", registered)
+                elseif not registered then
+                    Addon:Print("AddOns settings entry unavailable: " .. tostring(registrationError) .. ". Use /forevermultimonitor config to open settings.")
+                end
+            end
             Addon:Print("Loaded version " .. Addon.version .. " for Forever.")
         end
         if Addon.db then Addon.Panels:Initialize() end

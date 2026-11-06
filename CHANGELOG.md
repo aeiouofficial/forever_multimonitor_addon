@@ -1,3 +1,24 @@
+## [Unreleased] - 2026-11-06
+
+### Behavior contract and naming
+- Pinned the requested behavior contract to version 2.1.2 Beta 17, package file 9029504, Forever interface 16001 and paired helper compatibility beta.13. The comparison package is not part of this project; no package source or assets were copied.
+- Standardized the public layout names to `MainMonitor` and `SecondMonitor1`. The addon now registers only `/forevermultimonitor`; its settings, help text, tests and setup guides use the same command. The Windows helper's selector is `--mainmonitor`.
+- Migrated saved profile values and older native geometry handoffs to the current field names while retaining existing user settings.
+- This 0.4.1 implementation remains a partial standalone subset. README records the remaining gaps; local mock/build checks do not establish full live-client acceptance.
+
+### Fixed
+- Failed direct and post-combat reapply now disables the persisted layout and rolls back panels, viewport, raw mouse and World Map Escape state. `RunWhenSafe` preserves a callback's detailed error instead of replacing it with a generic rejection. Added Lua 5.1 fault injection for viewport exceptions and invalid geometry.
+- Forever Professions-family frames remain Blizzard-owned by default, and forbidden frames are not hooked or routed. Added Lua 5.1 ownership-boundary checks.
+- Normal span and native geometry handoff now reject anything other than exactly two selected displays. An explicit absolute `--addon-dir` on any drive, including C:, is accepted only when both expected addon files exist.
+- Panel restoration now rolls back a failed anchor/scale change, retains its original snapshot for retry, and reports the failure. Layout apply treats any panel-routing failure as a failure, disables the attempted layout and restores viewport, panels and raw mouse.
+- Deferred callbacks that return `false` now report their reason. Enable/reset/apply commands report actual outcomes; a failed enable no longer persists as active, and preview cannot start or be confirmed after a failed apply.
+- The dashboard is registered in WoW's AddOns settings page through the legacy or modern settings API and opens from the branded slash command.
+- Windows restore visibility is checked against the saved screen rectangle. Fallback is placed with screen-coordinate `SetWindowPos` after restoring `WINDOWPLACEMENT`; frame styles are refreshed on restore. Existing state files without a saved screen rectangle remain restorable through Windows' native placement adjustment.
+
+### Verification
+- Fresh local verification: 66 source regression checks PASS; structural validator PASS for 17 TOC Lua modules; Lua 5.1 syntax/runtime suite PASS, including profile/native-handoff migration and legacy/modern settings-category mocks; .NET 10 Release build PASS with 0 warnings and 0 errors; helper self-test PASS for two/single-display selection, zero-display rollback, handoff schema and path validation; staged and unstaged `git diff --check` PASS.
+- Real in-client AddOns-page visibility, slash openers, layout behavior, mixed-DPI alignment and physical disconnect/reconnect remain open shipping gates. The live WoW UI automation pipe is unavailable, so the installed addon has not been clicked or exercised in-client.
+
 ## [0.4.1] - 2026-11-06
 
 ### Fixed after critical audit
@@ -11,13 +32,13 @@
 ### Verification / release gate
 - Source/manifest checks, Lua 5.1 runtime scenarios and helper Release build PASS; helper self-test PASS.
 - **Live native HWND place/restore PASS on 2026-11-06**: Wow.exe window placed across 2560x1080 + 1920x1080 = 4480x1080, restored via safe primary-display fallback because original position was not sufficiently visible.
-- Still BLOCKED for full shipment: WoW addon cold-load/reload, taint/combat, UI family behavior, physical hotplug and mixed-DPI logical viewport placement have not been measured in client. No full Offhand parity claim.
+- Still blocked for full shipment: WoW addon cold-load/reload, taint/combat, UI family behavior, physical hotplug and mixed-DPI logical viewport placement have not been measured in client. Do not claim full behavior parity.
 - Full issue/impact/evidence record: [docs/AUDIT_2026-11-06.md](docs/AUDIT_2026-11-06.md).
 
 ## [0.4.0] - 2026-11-06
 
 ### Implemented
-- Validated data-only Windows-helper-to-Lua monitor geometry, atomic file handoff via --addon-dir, optional --mainhand, two aligned horizontal displays auto-calibration, and manual fallback for unsupported topologies.
+- Validated data-only Windows-helper-to-Lua monitor geometry, atomic file handoff via --addon-dir, optional --mainmonitor, two aligned horizontal displays auto-calibration, and manual fallback for unsupported topologies.
 - Profile-scoped reversible World Map Escape-list handling, with slash command and GUI toggle.
 - WorldFrame user-placement flag preservation and original-anchor recovery, including logout recovery attempt.
 - Bounded default-bag grid, offscreen drag-position clamping, Edit Mode panel-routing pause and exit-triggered recovery.
@@ -32,14 +53,14 @@
 
 ### Release gates
 - Native window placement/restore and mixed-DPI coordinate alignment against the actual running WoW client remain unverified.
-- Reference Offhand parity is not achieved: keyboard/gamepad focus, protected HUD layout creation, advanced panel family adaptations, chat/tooltips/bubbles, custom background media import, full GUI display selection and localization remain incomplete.
-- No persistent Companion service/protocol was added. No files were deliberately written to C:; development work and temp/cache roots are under the F: workspace.
+- The requested feature set remains incomplete: keyboard/gamepad focus, protected HUD layout creation, advanced panel family adaptations, chat/tooltips/bubbles, custom background media import, full GUI display selection and localization remain open.
+- No persistent external helper service/protocol was added. No files were deliberately written to C:; development work and temp/cache roots are under the F: workspace.
 
 ## [0.3.7] - 2026-11-06
 
 ### Added
 - Added per-profile dashboard theme presets: Midnight, Indigo and Classic.
-- Added a background-opacity slider (50?100%) applied to the options dashboard and setup wizard.
+- Added a background-opacity slider (50% to 100%) applied to the options dashboard and setup wizard.
 - Added config validation/migration defaults for theme preset and opacity; theme changes do not trigger a game-layout reapply.
 - Added Lua 5.1 runtime coverage for preset validation, opacity bounds, profile/UI synchronization, wizard theme inheritance and no-layout-reapply behavior.
 
@@ -59,11 +80,11 @@
 ## [0.3.6] - 2026-11-06
 
 ### Added
-- Added `/fmm diagnostics` to report addon/client versions, geometry, active profile, registered/hooked/assigned/excluded panel counts, active restore snapshots, deferred operations, preview state and last error.
+- Added `/forevermultimonitor diagnostics` to report addon/client versions, geometry, active profile, registered/hooked/assigned/excluded panel counts, active restore snapshots, deferred operations, preview state and last error.
 - Added runtime invocation and source regression coverage for the diagnostics command.
 
 ### Fixed
-- Updated the runtime addon version constant to `0.3.6` so `/fmm diagnostics` reports the same version as the TOC and release docs.
+- Updated the runtime addon version constant to `0.3.6` so `/forevermultimonitor diagnostics` reports the same version as the TOC and release docs.
 
 ### Changed
 - Added diagnostics to command help, README, setup and test matrix.
@@ -85,7 +106,7 @@
 - Added runtime tests for timeout rollback, Keep confirmation, stale timer invalidation and slash-command interaction.
 
 ### Changed
-- `/fmm enable`, `/fmm disable`, `/fmm apply` and `/fmm reset` now cancel or confirm an active preview rather than allowing a stale timer to override the user's explicit command.
+- `/forevermultimonitor enable`, `/forevermultimonitor disable`, `/forevermultimonitor apply` and `/forevermultimonitor reset` now cancel or confirm an active preview rather than allowing a stale timer to override the user's explicit command.
 - Bumped addon version and TOC metadata to `0.3.5`.
 - Updated setup, feature-parity and test documentation.
 
@@ -103,7 +124,7 @@
 ### Added
 - Added an explicitly opt-in Windows helper `watch` command. It places the WoW window, polls selected stable monitor device IDs, and triggers rollback if a selected display disappears.
 - Added safe restore geometry: preserve the original rectangle when it intersects a connected display; otherwise center the restored window on the primary connected display.
-- Added Ctrl+C restoration, configurable 250?10000 ms polling, and a helper `self-test` covering stable display identity, disconnect detection and fallback geometry.
+- Added Ctrl+C restoration, configurable 250 to 10000 ms polling, and a helper `self-test` covering stable display identity, disconnect detection and fallback geometry.
 
 ### Changed
 - Manual `restore` now uses the same off-screen-safe fallback when the original monitor is no longer connected.
@@ -134,9 +155,9 @@
 ## [0.3.2] - 2026-11-06
 
 ### Added
-- Replaced the static setup instruction page with a three-step guided flow: prepare the native Windows window, configure Mainhand side/width, and activate the in-game layout.
+- Replaced the static setup instruction page with a three-step guided flow: prepare the native Windows window, configure MainMonitor side/width, and activate the in-game layout.
 - Added live wizard controls backed by the same validated profile configuration as the dashboard and slash commands.
-- Added Lua 5.1 runtime coverage for wizard navigation, Mainhand controls and activation; added a source regression for the guided setup contract.
+- Added Lua 5.1 runtime coverage for wizard navigation, MainMonitor controls and activation; added a source regression for the guided setup contract.
 
 ### Changed
 - Bumped addon version and TOC metadata to `0.3.2`.
@@ -169,24 +190,24 @@
 - `git diff --check`: PASS.
 
 ### Remaining limitations
-- Focus ownership, Escape integration, panel-specific behavior, the actual Forever client and native WoW window placement/restore remain unverified or incomplete. This is not full Offhand parity.
+- Focus ownership, Escape integration, panel-specific behavior, the actual Forever client and native WoW window placement/restore remain unverified or incomplete. Full behavior parity is not established.
 
 ## [0.3.0] - 2026-11-06
 
 ### Added
-- Added `/fmm config`, an in-game settings window for enable/disable, Mainhand side, Mainhand width, seam offset, panel scale, raw-mouse behavior and named profile create/load/delete.
+- Added `/forevermultimonitor config`, an in-game settings window for enable/disable, MainMonitor side, MainMonitor width, seam offset, panel scale, raw-mouse behavior and named profile create/load/delete.
 - Added an in-window setup guide that explains the Windows-window and in-game-layout boundary.
 - Added a standalone Windows helper project with display enumeration (device names/IDs, bounds, primary state and DPI), WoW process-window discovery, one-shot combined-window placement, borderless style changes and explicit restore from a saved full `WINDOWPLACEMENT`.
 - Added a workspace-local helper build script; .NET CLI home, temporary directories and package cache are redirected to `.tmp`.
 - Added geometry boundary runtime tests for left/right placement, seam handling, width limits and invalid canvas geometry.
 - Added named profile migration from legacy settings, profile creation/switching, active/default deletion guards and SavedVariables persistence.
-- Fixed panel scaling so the Offhand workspace width/height fit takes precedence over the configured preferred scale; added a regression case for oversized native panels.
+- Fixed panel scaling so the SecondMonitor1 workspace width/height fit takes precedence over the configured preferred scale; added a regression case for oversized native panels.
 - Added named `CreateFrame` post-hook discovery for supported registered Blizzard panels created after addon initialization.
 
 ### Changed
 - Bumped addon version and TOC metadata to `0.3.0`.
 - Updated setup, architecture, parity and test documentation to distinguish implemented, simulated, locally exercised and live-unverified behavior.
-- The Windows helper is explicitly one-shot; no service, tray resident, startup registration, network access, telemetry or Companion protocol is introduced.
+- The Windows helper is explicitly one-shot; no service, tray resident, startup registration, network access, telemetry or external protocol is introduced.
 
 ### Verification
 - `node tools/regression.js`: 47 source regression assertions passed.
@@ -202,8 +223,8 @@
 - The helper uses a rectangular union of selected monitor bounds. It does not yet monitor display hotplug, automatically roll back on disconnect, provide a graphical display selector or communicate through a helper-to-addon protocol.
 - The helper sets its own DPI awareness; mixed-DPI behavior of the WoW process is not proven. The current development machine reports 2560x1080 at 96 DPI and 1920x1080 at 120 DPI, but no live game-window placement was attempted.
 - Panel family controllers still share a common placement primitive. Focus ownership, Escape integration, custom drag handles, transient HUD, Edit Mode and replacement-addon adapters remain open.
-- The settings window remains a basic dashboard. The guided wizard covers window preparation, Mainhand configuration and activation, but does not provide display selection or helper handoff. Theme packs, custom backgrounds, preview/recovery UX and code-free media import remain open.
-- Full Offhand user-facing feature parity is not achieved. Do not mark this release verified until every row in `docs/FEATURE_PARITY.md` and `docs/TEST_MATRIX.md` has real implementation and evidence.
+- The settings window remains a basic dashboard. The guided wizard covers window preparation, MainMonitor configuration and activation, but does not provide display selection or helper handoff. Theme packs, custom backgrounds, preview/recovery UX and code-free media import remain open.
+- The full requested user-facing feature set is incomplete. Do not mark this release verified until every row in `docs/FEATURE_PARITY.md` and `docs/TEST_MATRIX.md` has implementation and evidence.
 
 ## [0.2.0] - 2026-11-06
 
@@ -218,7 +239,7 @@
 - Prevented scan-only panel discovery from placing the same visible panel twice during a single apply pass.
 - Added schema-versioned, normalized per-character panel position persistence for frames that expose native OnDragStop events; saved positions are reapplied after subsequent opens.
 - Made recovery a single debounced operation per generation and routed it through the current enabled state, including a disable during combat.
-- Added raw-mouse behavior: default-on profile setting, original `rawMouseEnable` CVar capture, safe restore on disable/logout, and `/fmm rawmouse on|off` control.
+- Added raw-mouse behavior: default-on profile setting, original `rawMouseEnable` CVar capture, safe restore on disable/logout, and `/forevermultimonitor rawmouse on|off` control.
 
 ### Tests
 - Added dependency-free regression assertions for combat queue semantics, dynamic discovery, hook idempotency, snapshot lifecycle, recovery coalescing and error isolation.
@@ -229,7 +250,7 @@
 - No live Forever client test has been performed. Static parsing and simulated runtime tests do not prove secure-frame behavior, frame-hook availability or runtime panel correctness.
 - Dynamic discovery covers registered Blizzard UI panel entry points and known bag toggles; it does not claim to discover every arbitrary third-party frame.
 - Family-specific panel lifecycle adapters, GUI, setup wizard, themes, Edit Mode integration and native Windows control were not included in this version.
-- No Companion process or Companion protocol is included.
+- No external process or external protocol is included.
 
 ## [0.1.0] - 2026-11-06
 
@@ -237,15 +258,15 @@
 - Initial Forever-only addon scaffold targeting Interface 16001 and Camelot.
 - Runtime build/interface/project and optional-API diagnostics.
 - Account SavedVariables defaults and profile validation.
-- Manual logical-canvas geometry for left/right Mainhand layouts.
+- Manual logical-canvas geometry for left/right MainMonitor layouts.
 - Initial WorldFrame viewport controller with anchor capture and restoration.
 - Initial panel adapters for map, character, spellbook, quest, professions, auction, social, collections, encounter, achievement and bag/bank frames.
 - Bag-toggle discovery hooks for supported Blizzard global functions.
 - Debounced recovery after login, world entry, UI-scale and display-size changes.
-- Combat-deferred operations and `/fmm` command interface.
+- Combat-deferred operations and `/forevermultimonitor` command interface.
 - Architecture, feature-parity assessment, setup, test matrix and local structural validation.
 
 ### Limitations
 - No native Windows window management, display enumeration, borderless mode, or automatic physical topology detection.
-- No companion process or Companion protocol.
-- Not feature-equivalent to Offhand. In-client viewport, protected-frame, panel, persistence and recovery behavior remains unverified.
+- No external helper process or external protocol.
+- The requested behavior set is incomplete. In-client viewport, protected-frame, panel, persistence and recovery behavior remains unverified.

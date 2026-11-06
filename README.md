@@ -1,8 +1,18 @@
 # Forever MultiMonitor
 
-A standalone, companion-free multi-monitor workspace for **World of Warcraft: Forever**. The project is an independent implementation of the public user-facing Offhand workflow; it does not copy Offhand source or implement its Companion process/protocol.
+A standalone multi-monitor workspace for **World of Warcraft: Forever**. The addon, settings, commands and Windows helper use the Forever MultiMonitor name and its own interface.
 
-> **Development status: 0.4.1.** The addon core, basic in-game settings window and Windows helper with one-shot placement plus opt-in hotplug watch are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
+> **Development status: 0.4.1.** The addon core, in-game settings window and Windows helper with one-shot placement plus opt-in hotplug watch are implemented and locally tested. The requested feature set has not passed live in-game verification. No untested feature is represented as complete.
+
+## Behavior contract and current status
+
+The selected behavior contract is package version **2.1.2 Beta 17**, CurseForge file **9029504**, Forever interface **16001**, paired helper compatibility release **beta.13**. The package was used only to compare observable behavior; its source and assets are not part of this project. Later Beta 20/26 releases and the package's mutable `Unreleased` section do not replace the selected version contract.
+
+The inspected package license permits personal, non-commercial in-game use and prohibits redistribution, repackaging, or derivative copies. This project remains independently implemented and does not copy package source or media.
+
+**The requested feature set is incomplete.** The local implementation validates exact physical game/workspace rectangles for offset and stacked displays and has an explicitly selected single-screen ultrawide mode. Remaining gaps include Forever cold-launch SavedVariables recovery; player-confirmed protected Edit Mode fallback/restore prompts; panel-family lifecycle and open-state persistence beyond current routing/default bags; gather coverage for unregistered movable windows and its dashboard button; minimap/map-size and popup/chat-bubble behavior; custom theme colors and cross-character profile copy. The Windows helper is a CLI; it does not provide a graphical display selector, cold-launch bridge, or automatic span workflow.
+
+The installed copy under the live Forever AddOns directory was hash-checked, but the running client has not been restarted or exercised in-game. The game UI automation pipe is unavailable. In-game settings visibility, layout behavior, combat/taint, physical hotplug and mixed-DPI UI verification remain open.
 
 ## Target client
 
@@ -18,22 +28,23 @@ The TOC interface number is a load contract, not proof of API behavior. Protecte
 
 ### Lua addon
 
-- Mainhand/Offhand split of the logical `UIParent` canvas, with left/right side, width and seam controls.
+- MainMonitor/SecondMonitor1 split of the logical `UIParent` canvas, with left/right side, width and seam controls.
 - WorldFrame viewport capture/apply/restore, with temporary layout-cache suppression and original state recovery.
 - Registered panels, dynamic discovery through safe entry points, and independent default-bag grid placement.
+- Forever Professions-family frames and forbidden frames remain Blizzard-owned; the generic panel router does not hook or move them.
 - Protected HUD and known replacement-bag exclusions; unknown third-party frames remain untouched.
 - Combat-deferred, keyed desired-state queue and debounced recovery.
-- Per-character normalized drag positions for supported frames exposing native `OnDragStop`; saved positions are kept inside the active Offhand workspace.
-- Panel scaling is constrained by the actual Offhand workspace and canvas height, even when that requires going below the preferred scale setting.
+- Per-character normalized drag positions for supported frames exposing native `OnDragStop`; saved positions are kept inside the active SecondMonitor1 workspace.
+- Panel scaling is constrained by the actual SecondMonitor1 workspace and canvas height, even when that requires going below the preferred scale setting.
 - Supported panel visibility lifecycle: `OnShow` routes into the workspace; `OnHide` restores original anchors and scale. Show/hide changes share a keyed desired-state operation so combat-deferred work converges on the latest visibility state.
 - Raw-mouse CVar save/enable/restore, including logout recovery; profile-scoped default-map Escape persistence and restoration.
-- In-game settings window with per-profile Midnight/Indigo/Classic dashboard themes, 50?100% background opacity, three-step setup wizard and a 15-second reversible preview with explicit Keep confirmation: `/fmm config`.
+- In-game settings window registered in the WoW AddOns settings page, also reachable with `/forevermultimonitor config`; includes per-profile Midnight/Indigo/Classic dashboard themes, background opacity from 50% to 100%, a three-step setup wizard and a 15-second reversible preview with explicit Keep confirmation.
 
 ### Windows helper
 
-`WindowsHelper` is a separate Windows executable. It enumerates displays (device name/ID, physical bounds, primary flag and effective DPI), places a visible WoW process window across selected display bounds, applies borderless styles, and saves the original style and full `WINDOWPLACEMENT` for explicit restore. `watch` is an optional, explicitly launched polling mode: it detects loss of a selected physical display and restores the original window state, falling back to the primary connected display if the original rectangle is no longer visible. It is not a service, does not start automatically, and does not use a network connection or Companion protocol.
+`WindowsHelper` is a separate Windows executable. It enumerates displays (device name/ID, physical bounds, primary flag and effective DPI), places a visible WoW process window across selected display bounds, applies borderless styles, and saves the original style and full `WINDOWPLACEMENT` for explicit restore. `watch` is an optional, explicitly launched polling mode: it detects loss of a selected physical display and restores the original window state, falling back to the primary connected display if the original rectangle is no longer visible. It is not a service, does not start automatically, and does not use a network connection or external protocol.
 
-The helper spans selected displays and optionally writes a versioned, data-only native geometry snapshot into the installed addon via `--addon-dir` and `--mainhand`. After `/reload`, `/fmm native apply` calibrates a two-display horizontal layout; other topologies use manual controls. Monitor selection remains CLI-only.
+The helper spans exactly two selected displays by default and optionally writes exact versioned native geometry into the installed addon via an explicitly selected absolute `--addon-dir` on any drive. Use `--mainmonitor` to select the display used by MainMonitor. After `/reload`, `/forevermultimonitor native apply` supports offset, stacked and asymmetric two-display rectangles. Single-screen 32:9/32:10 mode requires `--single-ultrawide`, exactly one selected display and `--addon-dir`; it creates an equal split controlled by the addon's MainMonitor side. Monitor selection remains CLI-only. Active native geometry is rejected after Forever reports a different physical canvas; the addon then rolls back instead of compressing stale dual-display settings onto one screen.
 
 ## Current implementation status
 
@@ -41,7 +52,7 @@ The helper spans selected displays and optionally writes a versioned, data-only 
 |---|---|---|
 | Forever manifest / Camelot metadata | Implemented, Interface 16001 | Structural validator |
 | Config validation / per-character position schema | Implemented | Lua 5.1 runtime simulation |
-| Mainhand/Offhand logical geometry | Implemented for left/right and seam limits | Lua 5.1 runtime simulation; live client pending |
+| MainMonitor/SecondMonitor1 logical geometry | Implemented for left/right and seam limits | Lua 5.1 runtime simulation; live client pending |
 | WorldFrame viewport | Transactional apply, rollback after anchor failure, original user-placed flag preservation; failed application blocks panel routing | Lua 5.1 fault-injection regression PASS; in-client render pending |
 | Panel registry / ownership | Default bag grid + other registered families | Lua 5.1 simulation; family-specific non-bag adapters incomplete |
 | Dynamic panel discovery | `ShowUIPanel`, `ToggleFrame`, named `CreateFrame`, bag hooks and addon-load scans | Lua 5.1 simulation; live client pending |
@@ -49,34 +60,37 @@ The helper spans selected displays and optionally writes a versioned, data-only 
 | Panel visibility lifecycle | Show routes; hide restores original anchors/scale; combat deferral coalesces latest visibility state | Lua 5.1 runtime simulation; live panel tests pending |
 | Drag-position persistence | Normalized per-character save/reapply for supported native drag-stop events | Lua 5.1 runtime simulation; panel-specific live tests pending |
 | Raw mouse | Original `rawMouseEnable` value is saved and restored | Lua 5.1 runtime simulation; live input test pending |
-| In-game options | Enable, side, width, seam, scale, raw mouse, named profiles, three-step setup wizard, 15-second preview/rollback, Keep confirmation, dashboard theme presets/opacity and `/fmm diagnostics` | Lua 5.1 runtime simulation; in-client visual/input test pending |
+| In-game options | AddOns settings category plus slash openers, enable, side, width, seam, scale, raw mouse, named profiles, setup wizard, preview/rollback, theme presets/opacity and diagnostics | Lua 5.1 legacy/modern registration simulation; real Forever settings page/input test pending |
 | Windows display enumeration | Device names/IDs, bounds, primary flag and DPI | Built helper; enumerated connected displays on the development PC |
-| Native window placement | One-shot borderless placement, explicit restore and optional hotplug watch with safe fallback | Live WoW HWND 4480x1080 place/restore PASS on aligned 2560+1920 monitors; original offscreen window used primary fallback; hotplug/mixed-DPI rendering pending |
+| Native window placement | One-shot borderless placement across exactly two selected displays, explicit restore and optional hotplug watch with safe fallback | Earlier live WoW HWND 4480x1080 place/restore used aligned 2560+1920 monitors; original offscreen window used primary fallback; hotplug/mixed-DPI rendering pending |
 | Named profiles | Create, load, save, delete; legacy settings migrate to protected `Default` profile | Lua 5.1 runtime simulation; live UI/reload test pending |
-| Dashboard themes | Midnight, Indigo and Classic presets with per-profile 50?100% background opacity; applies to dashboard and wizard only | Lua 5.1 runtime simulation; live visual test pending |
-| Custom backgrounds / user media import | Not implemented; no code-free media-pack importer or file validation pipeline | Open |
+| Dashboard themes | Midnight, Indigo and Classic presets with per-profile background opacity from 50% to 100%; applies to dashboard and wizard only | Lua 5.1 runtime simulation; live visual test pending |
+| Custom theme colors | Not implemented; only the built-in palettes are available | Open against Beta 17 |
 | Edit Mode, protected HUD, Escape/focus and advanced panel lifecycle | Edit Mode pause/recover, default map Escape option and protected HUD exclusion; focus and actual HUD layout creation remain open | Simulated; live tests pending |
 | Display hotplug monitoring / automatic rollback | Opt-in watcher detects selected-display loss and restores to the original visible rectangle or primary-display fallback; automatic reconnect/reapply is not implemented | Helper self-test; physical disconnect test open |
-| Native geometry handoff | Atomic helper-generated Lua data file, schema validation, two-display calibration | C# / Lua simulated, no live WoW test |
-| Full Offhand feature parity | Not achieved | Release gate open |
+| Native geometry handoff | Atomic helper-generated Lua data file; exact two-display rectangles or explicit single-ultrawide mode; active Forever screen-size validation; explicit absolute addon paths on any drive | C# / Lua simulated, no live WoW geometry test |
+| Complete requested feature coverage | Not achieved | Release gate open |
 
 ## Addon commands
 
-- `/fmm` — command help
-- `/fmm config` — open the in-game settings window
-- `/fmm profile list|create <name>|use <name>|delete <name>` - manage named layouts
-- `/fmm status` — report client, canvas and active profile
-- `/fmm diagnostics` — report panel discovery/ownership, restore snapshots, queued operations, preview state and last error
-- `/fmm apply` — apply the current layout
-- `/fmm enable` / `/fmm disable` — activate/deactivate
-- `/fmm side left|right` — choose Mainhand side
-- `/fmm width 25-90` — Mainhand share of the logical canvas
-- `/fmm seam 0-100` — seam offset in logical UI units
-- `/fmm scale 0.5-1.5` — requested panel scale
-- `/fmm mapescape on|off` — default World Map Escape behavior while the layout is enabled
-- `/fmm native status|apply` — status and optional physical Mainhand calibration
-- `/fmm rawmouse on|off` — raw mouse input while layout is active
-- `/fmm reset` — disable and restore captured viewport/panel state
+- `/forevermultimonitor` — toggle the in-game settings window
+- `/forevermultimonitor config` — toggle the settings window
+- `/forevermultimonitor wizard` — open the setup wizard
+- `/forevermultimonitor gather` — return eligible off-screen panels to MainMonitor
+- `/forevermultimonitor diag` — print runtime, panel, geometry and error diagnostics
+- `/forevermultimonitor profile list|create <name>|use <name>|delete <name>` - manage named layouts
+- `/forevermultimonitor status` — report client, canvas and active profile
+- `/forevermultimonitor diagnostics` — report panel discovery/ownership, restore snapshots, queued operations, preview state and last error
+- `/forevermultimonitor apply` — apply the current layout
+- `/forevermultimonitor enable` / `/forevermultimonitor disable` — activate/deactivate
+- `/forevermultimonitor side left|right` — choose MainMonitor side
+- `/forevermultimonitor width 25-90` — MainMonitor share of the logical canvas
+- `/forevermultimonitor seam 0-100` — seam offset in logical UI units
+- `/forevermultimonitor scale 0.5-1.5` — requested panel scale
+- `/forevermultimonitor mapescape on|off` — default World Map Escape behavior while the layout is enabled
+- `/forevermultimonitor native status|apply` — status and optional physical MainMonitor calibration
+- `/forevermultimonitor rawmouse on|off` — raw mouse input while layout is active
+- `/forevermultimonitor reset` — disable and restore captured viewport/panel state
 
 ## Build and run the Windows helper
 
@@ -125,7 +139,7 @@ python tools/runtime_regression.py
 
 `WindowsHelper/build.ps1` builds the native helper. `list` and `self-test` are safe to run during verification; `place` and `watch` are deliberately not run automatically because they change the live WoW window.
 
-At the current checkpoint, 54 source regression assertions, Lua 5.1 syntax parsing and mocked runtime scenarios, including named profile migration/switching, theme preset/opacity controls, options profile controls and the guided wizard, panel hide/restore/reopen and combat visibility convergence, pass; the Windows helper builds with zero warnings/errors and its display enumeration was exercised. **WoW HWND place/restore was exercised successfully on 2026-11-06, but the addon has NOT passed the in-client test matrix.** Expanded Lua 5.1 tests cover map Escape, calibration, bag grid, Edit Mode pause, viewport persistence and injected anchor errors; no physical hotplug or mixed-DPI in-game alignment test has been performed. See [the test matrix](docs/TEST_MATRIX.md) and [critical audit](docs/AUDIT_2026-11-06.md) before calling the project release-ready.
+At the current checkpoint, `node tools/regression.js` passes 64 source assertions; `node tools/validate.js` passes for 17 TOC Lua modules; the Lua 5.1 parser and mocked runtime suite pass, including legacy/modern AddOns category registration/opening, slash aliases, gather filters, geometry rollback and panel lifecycle; the Windows helper Release build has 0 warnings/errors and its self-test passes dual-display, explicit single-ultrawide and zero-display recovery cases. **The addon has NOT passed the in-client test matrix.** The AddOns page entry, slash openers, layout, and gather behavior still need a real Forever client test; physical hotplug and mixed-DPI in-game alignment are unverified. See [the test matrix](docs/TEST_MATRIX.md) and [critical audit](docs/AUDIT_2026-11-06.md) before calling the project release-ready.
 
 ## Technical boundary
 

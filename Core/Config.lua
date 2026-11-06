@@ -1,8 +1,8 @@
 local _, Addon = ...
 
 local DEFAULT_PROFILE = {
-    mainhandSide = "left",
-    mainhandWidthPercent = 50,
+    mainMonitorSide = "left",
+    mainMonitorWidthPercent = 50,
     seamUiUnits = 0,
     panelScale = 1.0,
     rawMouseEnabled = true,
@@ -37,12 +37,20 @@ local function applyDefaults(target, defaults)
     end
 end
 
+local function migrateSavedProfileKeys(profile)
+    if type(profile) ~= "table" then return end
+    if profile.mainMonitorSide == nil then profile.mainMonitorSide = profile.mainhandSide end
+    if profile.mainMonitorWidthPercent == nil then profile.mainMonitorWidthPercent = profile.mainhandWidthPercent end
+    profile.mainhandSide = nil
+    profile.mainhandWidthPercent = nil
+end
+
 local function validateProfile(profile)
-    if profile.mainhandSide ~= "left" and profile.mainhandSide ~= "right" then
-        profile.mainhandSide = DEFAULT_PROFILE.mainhandSide
+    if profile.mainMonitorSide ~= "left" and profile.mainMonitorSide ~= "right" then
+        profile.mainMonitorSide = DEFAULT_PROFILE.mainMonitorSide
     end
-    local width = tonumber(profile.mainhandWidthPercent) or DEFAULT_PROFILE.mainhandWidthPercent
-    profile.mainhandWidthPercent = math.max(25, math.min(90, width))
+    local width = tonumber(profile.mainMonitorWidthPercent) or DEFAULT_PROFILE.mainMonitorWidthPercent
+    profile.mainMonitorWidthPercent = math.max(25, math.min(90, width))
     local seam = tonumber(profile.seamUiUnits) or DEFAULT_PROFILE.seamUiUnits
     profile.seamUiUnits = math.max(0, math.min(100, seam))
     local scale = tonumber(profile.panelScale) or DEFAULT_PROFILE.panelScale
@@ -68,6 +76,13 @@ function Addon:InitializeConfig()
     if type(ForeverMultiMonitorDB) ~= "table" then ForeverMultiMonitorDB = {} end
     if type(ForeverMultiMonitorCharDB) ~= "table" then ForeverMultiMonitorCharDB = {} end
 
+    migrateSavedProfileKeys(ForeverMultiMonitorDB.profile)
+    migrateSavedProfileKeys(ForeverMultiMonitorDB.lastAppliedLayout)
+    if type(ForeverMultiMonitorDB.profiles) == "table" then
+        for _, profile in pairs(ForeverMultiMonitorDB.profiles) do
+            migrateSavedProfileKeys(profile)
+        end
+    end
     applyDefaults(ForeverMultiMonitorDB, DEFAULTS)
     validateProfile(ForeverMultiMonitorDB.profile)
 
@@ -153,8 +168,15 @@ end
 function Addon:SetEnabled(enabled)
     if not self.db then self:InitializeConfig() end
     self.db.enabled = not not enabled
-    if self.db.enabled then self:Apply() else self:Reset() end
+    local applied
+    if self.db.enabled then applied = self:Apply() else applied = self:Reset() end
+    if enabled and applied == false and self.db.enabled and not (InCombatLockdown and InCombatLockdown()) then
+        -- An unsuccessful enable must not persist as active across reload.
+        self.db.enabled = false
+        self:Reset()
+    end
     if self.MapEscape then self.MapEscape:Sync() end
+    return applied
 end
 
 function Addon:SetProfileValue(key, value)
