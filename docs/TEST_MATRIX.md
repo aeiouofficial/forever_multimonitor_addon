@@ -7,8 +7,8 @@ Target: WoW Forever launch client `1.60.1.70790`, interface `16001`, game type `
 | Area | Command | Current result |
 |---|---|---|
 | Manifest / Lua structure / workspace restrictions | `node tools/validate.js` | PASS; 13 TOC Lua modules |
-| Source regression assertions | `node tools/regression.js` | PASS; 52 assertions |
-| Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` | PASS; geometry, named profiles, options window, combat, panel registry/discovery, show/hide restoration, combat visibility convergence, preview timeout/Keep/command invalidation, diagnostics command, anchors, persistence, raw mouse and recovery scenarios |
+| Source regression assertions | `node tools/regression.js` | PASS; 53 assertions |
+| Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` | PASS; geometry, named profiles, options window, combat, panel registry/discovery, show/hide restoration, combat visibility convergence, preview timeout/Keep/command invalidation, theme preset validation/application/opacity, diagnostics command, anchors, persistence, raw mouse and recovery scenarios |
 | Windows helper compile | `WindowsHelper/build.ps1` | PASS; .NET 10 Release build, 0 warnings / 0 errors |
 | Windows hotplug pure self-test | `ForeverMultiMonitor.WindowsHelper.exe self-test` | PASS; stable display identity, missing-display detection, safe primary fallback, partial-visibility handling and exact visible-position restore |
 | Windows display enumeration | `ForeverMultiMonitor.WindowsHelper.exe list` | PASS on development PC; two displays reported with device IDs, bounds and DPI |
@@ -28,6 +28,7 @@ Lua mocks are not a substitute for the Forever client. Windows display enumerati
 | GUI | `/fmm config` | Settings window opens, remains movable, closes with Escape and reopens |
 | GUI | Enable/disable control | Same result as `/fmm enable` and `/fmm disable` |
 | GUI | Preview for 15 seconds; Keep or allow timeout | Keep leaves layout enabled; timeout restores the previous disabled state; stale timers cannot undo a confirmed layout |
+| GUI | Cycle Midnight/Indigo/Classic and adjust background opacity | Profile stores theme/opacity; dashboard and wizard update; opacity changes do not reapply game geometry |
 | GUI | Side, width, seam and scale controls | Saved values match `/fmm status`; Apply updates the layout |
 | GUI | Raw mouse toggle | Previous CVar value is restored correctly |
 | Profiles | Create a named profile, change settings, load Default and reload the named profile | Each profile retains its own validated values across reload |

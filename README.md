@@ -2,7 +2,7 @@
 
 A standalone, companion-free multi-monitor workspace for **World of Warcraft: Forever**. The project is an independent implementation of the public user-facing Offhand workflow; it does not copy Offhand source or implement its Companion process/protocol.
 
-> **Development status: 0.3.6.** The addon core, basic in-game settings window and Windows helper with one-shot placement plus opt-in hotplug watch are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
+> **Development status: 0.3.7.** The addon core, basic in-game settings window and Windows helper with one-shot placement plus opt-in hotplug watch are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
 
 ## Target client
 
@@ -27,7 +27,7 @@ The TOC interface number is a load contract, not proof of API behavior. Protecte
 - Panel scaling is constrained by the actual Offhand workspace and canvas height, even when that requires going below the preferred scale setting.
 - Supported panel visibility lifecycle: `OnShow` routes into the workspace; `OnHide` restores original anchors and scale. Show/hide changes share a keyed desired-state operation so combat-deferred work converges on the latest visibility state.
 - Raw-mouse CVar save/enable/restore, including logout recovery.
-- In-game settings window, three-step guided setup wizard and a 15-second reversible layout preview with explicit Keep confirmation: `/fmm config`.
+- In-game settings window with per-profile Midnight/Indigo/Classic dashboard themes, 50?100% background opacity, three-step setup wizard and a 15-second reversible preview with explicit Keep confirmation: `/fmm config`.
 
 ### Windows helper
 
@@ -49,11 +49,12 @@ The helper makes the native window cover the selected displays. The addon then u
 | Panel visibility lifecycle | Show routes; hide restores original anchors/scale; combat deferral coalesces latest visibility state | Lua 5.1 runtime simulation; live panel tests pending |
 | Drag-position persistence | Normalized per-character save/reapply for supported native drag-stop events | Lua 5.1 runtime simulation; panel-specific live tests pending |
 | Raw mouse | Original `rawMouseEnable` value is saved and restored | Lua 5.1 runtime simulation; live input test pending |
-| In-game options | Enable, side, width, seam, scale, raw mouse, named profiles, three-step setup wizard, 15-second preview/rollback and Keep confirmation; `/fmm diagnostics` runtime snapshot | Lua 5.1 runtime simulation; in-client visual/input test pending |
+| In-game options | Enable, side, width, seam, scale, raw mouse, named profiles, three-step setup wizard, 15-second preview/rollback, Keep confirmation, dashboard theme presets/opacity and `/fmm diagnostics` | Lua 5.1 runtime simulation; in-client visual/input test pending |
 | Windows display enumeration | Device names/IDs, bounds, primary flag and DPI | Built helper; enumerated connected displays on the development PC |
 | Native window placement | One-shot placement, borderless styles, explicit restore and optional hotplug watch with safe fallback | .NET build and pure self-test; live WoW placement/hotplug tests pending |
 | Named profiles | Create, load, save, delete; legacy settings migrate to protected `Default` profile | Lua 5.1 runtime simulation; live UI/reload test pending |
-| Themes and custom backgrounds | Not implemented as a complete feature set | Open |
+| Dashboard themes | Midnight, Indigo and Classic presets with per-profile 50?100% background opacity; applies to dashboard and wizard only | Lua 5.1 runtime simulation; live visual test pending |
+| Custom backgrounds / user media import | Not implemented; no code-free media-pack importer or file validation pipeline | Open |
 | Edit Mode, protected HUD, Escape/focus and advanced panel lifecycle | Not implemented as a complete feature set | Open |
 | Display hotplug monitoring / automatic rollback | Opt-in watcher detects selected-display loss and restores to the original visible rectangle or primary-display fallback; automatic reconnect/reapply is not implemented | Helper self-test; physical disconnect test open |
 | Full Offhand feature parity | Not achieved | Release gate open |
@@ -121,7 +122,7 @@ python tools/runtime_regression.py
 
 `WindowsHelper/build.ps1` builds the native helper. `list` and `self-test` are safe to run during verification; `place` and `watch` are deliberately not run automatically because they change the live WoW window.
 
-At the current checkpoint, 52 source regression assertions, Lua 5.1 syntax parsing and mocked runtime scenarios, including named profile migration/switching, options profile controls and the guided wizard, panel hide/restore/reopen and combat visibility convergence, pass; the Windows helper builds with zero warnings/errors and its display enumeration was exercised. **No WoW client live test or native window place/restore test has been performed.** See [the test matrix](docs/TEST_MATRIX.md) before calling the project release-ready.
+At the current checkpoint, 53 source regression assertions, Lua 5.1 syntax parsing and mocked runtime scenarios, including named profile migration/switching, theme preset/opacity controls, options profile controls and the guided wizard, panel hide/restore/reopen and combat visibility convergence, pass; the Windows helper builds with zero warnings/errors and its display enumeration was exercised. **No WoW client live test or native window place/restore test has been performed.** See [the test matrix](docs/TEST_MATRIX.md) before calling the project release-ready.
 
 ## Technical boundary
 

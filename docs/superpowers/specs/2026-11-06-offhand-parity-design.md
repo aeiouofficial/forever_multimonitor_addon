@@ -117,7 +117,7 @@ README, CHANGELOG und Feature-Matrix müssen zwischen implementiert, statisch ge
 
 ## 10. Umsetzungsstand und bewusste Abweichungen (2026-11-06)
 
-- Der Lua-Kern wurde erweitert um keyed Combat-Queue, dynamische registrierte Panel-Erkennung, Position-Persistenz, Raw-Mouse-CVar-Restore, grundlegende Optionen-UI und named profiles. Panel-spezifische Lifecycle-/Focus-/Escape-Adapter und Live-Client-Tests fehlen weiterhin.
-- Die Options-UI enthält die Kernsteuerung und eine Anleitungsseite; sie ist noch kein vollständiges Offhand-Dashboard oder geführter Wizard.
-- Der Windows-Helfer ist aktuell ein .NET-10-x64-Prozess mit Win32-P/Invoke, kein Rust-Build und kein NativeAOT. Er enumeriert Displays und bietet einmaliges place/estore; Hotplug-Monitoring, GUI-Displayauswahl und direkter Addon-Handoff fehlen.
-- Diese Abweichungen sind in README, CHANGELOG und Feature-Matrix als offen ausgewiesen. Kein Vollparitäts-Claim.
+- Der Lua-Kern enth?lt keyed Combat-Queue, registrierte dynamische Panel-Erkennung, Position-Persistenz, Raw-Mouse-CVar-Restore, OnShow-/OnHide-Reconciliation, named profiles, dreistufigen Setup-Wizard, 15-Sekunden-Preview mit Keep/Rollback und `/fmm diagnostics`. Panel-spezifische Lifecycle-/Focus-/Escape-Adapter und Live-Client-Tests fehlen weiterhin.
+- Die Options-UI bietet die Kernsteuerung, den gef?hrten Wizard, Preview/Recovery, Diagnose sowie per Profil gespeicherte Midnight-/Indigo-/Classic-Dashboard-Themes und 50?100 % Hintergrundopazit?t. Die Themes gelten nur f?r Dashboard und Wizard; Custom-Background-/User-Media-Import ist weiterhin offen.
+- Der Windows-Helfer ist ein .NET-10-x64-Prozess mit Win32-P/Invoke, kein Rust-Build und kein NativeAOT. Er enumeriert Displays und bietet `place`, `restore` sowie optional gestartetes `watch` mit Hotplug-Rollback auf die urspr?ngliche sichtbare Position oder den Prim?rmonitor. GUI-Displayauswahl, automatisches Reconnect/Reapply und direkter Addon-Handoff fehlen.
+- Diese Abweichungen sind in README, CHANGELOG und Feature-Matrix als offen ausgewiesen. Kein Vollparit?ts-Claim.

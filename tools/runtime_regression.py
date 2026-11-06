@@ -24,6 +24,8 @@ lua.execute((ROOT / "Core" / "Config.lua").read_text(encoding="utf-8-sig"), "For
 addon.InitializeConfig(addon)
 lua.execute("assert(ForeverMultiMonitor.db.activeProfile == 'Default', 'legacy settings were not migrated to Default profile'); local ok = ForeverMultiMonitor:CreateProfile('Work'); assert(ok, 'profile creation failed'); local duplicate = ForeverMultiMonitor:CreateProfile('work'); assert(not duplicate, 'case-insensitive duplicate profile name was accepted'); local invalid = ForeverMultiMonitor:CreateProfile('bad/name'); assert(not invalid, 'invalid profile name was accepted'); ForeverMultiMonitor:SetProfileValue('mainhandWidthPercent', 72); assert(ForeverMultiMonitor.db.profiles.Work.mainhandWidthPercent == 72, 'active profile was not saved'); assert(ForeverMultiMonitor:SetActiveProfile('Default'), 'Default profile could not be loaded'); assert(ForeverMultiMonitor:GetProfile().mainhandWidthPercent == 50, 'Default profile was overwritten'); assert(ForeverMultiMonitor:SetActiveProfile('Work'), 'Work profile could not be loaded'); assert(ForeverMultiMonitor:GetProfile().mainhandWidthPercent == 72, 'Work profile was not restored'); assert(not ForeverMultiMonitor:DeleteProfile('Work'), 'active profile was deleted'); assert(ForeverMultiMonitor:SetActiveProfile('Default'), 'could not return to Default'); assert(ForeverMultiMonitor:DeleteProfile('Work'), 'inactive profile could not be deleted'); assert(not ForeverMultiMonitor:DeleteProfile('Default'), 'Default profile must be protected')")
 print("PASS Lua 5.1: named profile migration, create, save, switch and safe delete")
+lua.execute("assert(ForeverMultiMonitor:GetProfile().themePreset == 'midnight', 'theme preset default missing'); assert(ForeverMultiMonitor:GetProfile().backgroundOpacity == 0.92, 'background opacity default missing'); ForeverMultiMonitor:SetProfileValue('themePreset', 'invalid-theme'); assert(ForeverMultiMonitor:GetProfile().themePreset == 'midnight', 'invalid theme was not rejected'); ForeverMultiMonitor:SetProfileValue('themePreset', 'indigo'); assert(ForeverMultiMonitor:GetProfile().themePreset == 'indigo', 'valid theme preset was not retained'); ForeverMultiMonitor:SetProfileValue('backgroundOpacity', 1.5); assert(ForeverMultiMonitor:GetProfile().backgroundOpacity == 1, 'opacity upper bound was not clamped'); ForeverMultiMonitor:SetProfileValue('backgroundOpacity', 0.2); assert(ForeverMultiMonitor:GetProfile().backgroundOpacity == 0.5, 'opacity lower bound was not clamped')")
+print("PASS Lua 5.1: theme preset validation and opacity bounds")
 lua.execute("assert(ForeverMultiMonitor.charDB.panelPositionSchema == 1, 'panel position schema was not initialized'); assert(ForeverMultiMonitor.charDB.panelPositions.Legacy.x == 0.1, 'existing position data was discarded')")
 lua.execute("ForeverMultiMonitorCharDB = { panelPositionSchema = 2, panelPositions = { Keep = { schema = 2 } } }; ForeverMultiMonitor:InitializeConfig(); assert(ForeverMultiMonitor.charDB.panelPositionSchema == 2 and ForeverMultiMonitor.charDB.panelPositions.Keep ~= nil, 'future schema data was mutated')")
 print("PASS Lua 5.1: character position schema migration and future-schema read-only handling")
@@ -293,6 +295,9 @@ local function widget()
   function f:SetHighlightTexture() end
   function f:SetThumbTexture() end
   function f:SetBackdrop() end
+  function f:SetBackdropColor(...) self.backdropColor = {...} end
+  function f:SetBackdropBorderColor(...) self.backdropBorderColor = {...} end
+  function f:SetTextColor(...) self.textColor = {...} end
   function f:SetOrientation() end
   function f:SetMinMaxValues() end
   function f:SetValueStep() end
@@ -338,6 +343,15 @@ lua.execute((ROOT / "Core" / "Commands.lua").read_text(encoding="utf-8-sig"), "F
 lua.execute("""
 ForeverMultiMonitor:HandleCommand("diagnostics")
 ForeverMultiMonitor.Options:Create()
+assert(ForeverMultiMonitor.Options.themeButton.label.text == "Theme: Midnight", "default theme label missing")
+ForeverMultiMonitor.Options.themeButton.scripts.OnClick()
+assert(ForeverMultiMonitor.db.profile.themePreset == "indigo" and ForeverMultiMonitor.Options.themeButton.label.text == "Theme: Indigo", "theme cycle did not update profile/UI")
+ForeverMultiMonitor.Options.backgroundOpacitySlider.slider:SetValue(0.7)
+assert(ForeverMultiMonitor.db.profile.backgroundOpacity == 0.7, "background opacity slider did not update profile")
+assert(ForeverMultiMonitor.Options.frame.backdropColor[4] == 0.7, "background opacity was not applied to the options backdrop")
+local applyBeforeOpacityRelease = applyCount
+ForeverMultiMonitor.Options.backgroundOpacitySlider.slider.scripts.OnMouseUp()
+assert(applyCount == applyBeforeOpacityRelease, "theme opacity change unexpectedly reapplied the game layout")
 assert(not ForeverMultiMonitor.Options.frame:IsShown(), "options window should start hidden")
 ForeverMultiMonitor.Options:Toggle()
 assert(ForeverMultiMonitor.Options.frame:IsShown(), "options window did not open")
@@ -400,6 +414,7 @@ ForeverMultiMonitor.Options:ShowWizard()
 wizardPreviewCallback()
 assert(not ForeverMultiMonitor.db.enabled and not ForeverMultiMonitor.Options.previewActive, "opening the wizard did not restore the previous disabled state")
 assert(ForeverMultiMonitor.Options.wizard:IsShown() and not ForeverMultiMonitor.Options.settings:IsShown(), "setup page did not replace settings page")
+assert(ForeverMultiMonitor.Options.wizard.backdropColor[4] == 0.7, "wizard did not inherit the active theme opacity")
 assert(ForeverMultiMonitor.Options.wizard.next ~= nil and ForeverMultiMonitor.Options.wizard.next.label.text == "Next", "guided wizard is missing its forward action")
 ForeverMultiMonitor.Options.wizard.next.scripts.OnClick()
 assert(ForeverMultiMonitor.Options.wizardStep == 2 and ForeverMultiMonitor.Options.wizard.back.label.text == "Back", "wizard did not advance to Mainhand configuration")

@@ -1,3 +1,24 @@
+## [0.3.7] - 2026-11-06
+
+### Added
+- Added per-profile dashboard theme presets: Midnight, Indigo and Classic.
+- Added a background-opacity slider (50?100%) applied to the options dashboard and setup wizard.
+- Added config validation/migration defaults for theme preset and opacity; theme changes do not trigger a game-layout reapply.
+- Added Lua 5.1 runtime coverage for preset validation, opacity bounds, profile/UI synchronization, wizard theme inheritance and no-layout-reapply behavior.
+
+### Changed
+- Updated the runtime addon version constant to `0.3.7` to match the TOC and release docs.
+- Updated README, setup, feature-parity and test documentation. Custom background files and code-free user-media import remain open and are not claimed as implemented.
+
+### Verification
+- `python tools/runtime_regression.py`: PASS, including theme migration, validation, UI application and wizard inheritance.
+- `node tools/regression.js`: 53 source regression assertions passed.
+- `node tools/validate.js`: PASS.
+- `git diff --check`: PASS.
+
+### Remaining limitations
+- Theme rendering has only been exercised in the Lua frame mock. Live Forever UI visuals remain unverified. Presets affect the addon dashboard/wizard only, not Blizzard panels or game UI; custom image import is not implemented.
+
 ## [0.3.6] - 2026-11-06
 
 ### Added

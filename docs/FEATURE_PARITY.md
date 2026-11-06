@@ -18,7 +18,8 @@ Target: the public user-facing Offhand workflow, excluding the Companion process
 | In-game options dashboard | Lua addon | `/fmm config`: enable, side, width, seam, scale, raw mouse, profile controls, apply/reset, 15-second preview with automatic rollback and explicit Keep, plus `/fmm diagnostics` runtime reporting | Lua 5.1 runtime simulation; in-client visual/input test open |
 | Setup wizard | Lua addon | Three-step stateful flow: native-window preparation instructions, live Mainhand side/width controls, layout activation and finish/back navigation | Lua 5.1 runtime simulation; in-client visual and native-helper handoff tests open |
 | Named profiles / profile switching | Lua addon | Legacy settings migrate to `Default`; named profiles can be created, saved, loaded and deleted with active/default protection | Lua 5.1 runtime simulation; live UI/reload test open |
-| Themes / custom backgrounds / media import | Lua addon | Not implemented | Open |
+| Dashboard theme presets / opacity | Lua addon | Midnight, Indigo and Classic palettes; per-profile background opacity from 50?100%; dashboard and wizard only | Lua 5.1 runtime simulation; in-client visual test open |
+| Custom backgrounds / user media import | Lua addon + packaging/helper | No code-free media-pack importer, path validation or reload handoff | Open |
 | Edit Mode / protected HUD integration | Lua addon | Not implemented; Forever API support not established | Open; no secure-frame bypass planned |
 | Gamepad/Mainhand behavior, chat bubbles, popup/menu bounds, transient HUD | Lua addon | Not implemented as a complete compatibility layer | Open |
 | Ultrawide presets / aspect and bezel calibration | Lua addon | Basic width and seam controls only; no 21:9/32:9 presets | Partial |

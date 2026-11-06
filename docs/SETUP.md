@@ -48,6 +48,7 @@ Do not delete or move the helper executable or its `window-state.json` until res
 3. Run `/fmm status` and confirm the logical canvas has the expected combined width.
 4. Open `/fmm config` and select **Setup wizard** for the three-step guided flow, or configure directly in the dashboard.
 5. Choose Mainhand left/right and set the width, seam offset and panel scale.
+6. Select a dashboard theme (Midnight, Indigo or Classic) and set background opacity between 50% and 100%; these values are stored per profile. The theme affects the options dashboard and wizard, not game panels.
 6. Create or load a named profile in the profile row if you need separate display layouts.
 7. Enable the layout and inspect the WorldFrame and supported panels. Use Apply after changing the native window arrangement.
 
@@ -80,4 +81,4 @@ If the helper is not used, place the WoW window manually across the displays or 
 
 ## Limitations
 
-The `place` command is one-shot. The optional foreground `watch` command polls selected display IDs and rolls back when one disappears; it does not automatically reapply when a display reconnects. No service or autostart is installed and no Companion-like protocol is used. The helper combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The wizard guides the user through native-window preparation, Mainhand side/width configuration and activation, but Windows display enumeration and placement remain manual helper CLI operations; there is no integrated display selector or direct helper-to-addon handoff. Complete panel focus/Escape lifecycle, themes, custom backgrounds, Edit Mode and full Offhand parity remain open.
+The `place` command is one-shot. The optional foreground `watch` command polls selected display IDs and rolls back when one disappears; it does not automatically reapply when a display reconnects. No service or autostart is installed and no Companion-like protocol is used. The helper combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The wizard guides the user through native-window preparation, Mainhand side/width configuration and activation, but Windows display enumeration and placement remain manual helper CLI operations; there is no integrated display selector or direct helper-to-addon handoff. Complete panel focus/Escape lifecycle, custom background/user-media import, Edit Mode and full Offhand parity remain open. Built-in dashboard themes do not theme in-game Blizzard panels.

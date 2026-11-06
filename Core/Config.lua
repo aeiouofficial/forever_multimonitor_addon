@@ -6,6 +6,8 @@ local DEFAULT_PROFILE = {
     seamUiUnits = 0,
     panelScale = 1.0,
     rawMouseEnabled = true,
+    themePreset = "midnight",
+    backgroundOpacity = 0.92,
 }
 
 local DEFAULTS = {
@@ -45,6 +47,12 @@ local function validateProfile(profile)
     local scale = tonumber(profile.panelScale) or DEFAULT_PROFILE.panelScale
     profile.panelScale = math.max(0.5, math.min(1.5, scale))
     profile.rawMouseEnabled = profile.rawMouseEnabled ~= false
+    if profile.themePreset ~= "midnight" and profile.themePreset ~= "indigo" and profile.themePreset ~= "classic" then
+        profile.themePreset = DEFAULT_PROFILE.themePreset
+    end
+    local opacity = tonumber(profile.backgroundOpacity) or DEFAULT_PROFILE.backgroundOpacity
+    if opacity ~= opacity or opacity == math.huge or opacity == -math.huge then opacity = DEFAULT_PROFILE.backgroundOpacity end
+    profile.backgroundOpacity = math.max(0.5, math.min(1, opacity))
 end
 
 local function validProfileName(name)

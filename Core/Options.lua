@@ -23,7 +23,7 @@ local function makeButton(parent, text, width, height, callback)
     return button
 end
 
-local function makeSlider(parent, labelText, minValue, maxValue, step, formatValue, onChange)
+local function makeSlider(parent, labelText, minValue, maxValue, step, formatValue, onChange, applyOnRelease)
     local container = CreateFrame("Frame", nil, parent)
     container:SetSize(440, 52)
     local label = makeText(container, labelText, 12)
@@ -42,11 +42,60 @@ local function makeSlider(parent, labelText, minValue, maxValue, step, formatVal
         valueText:SetText(formatValue(value))
         onChange(value)
     end)
-    slider:SetScript("OnMouseUp", function() if Addon.db and Addon.db.enabled then Addon:Apply() end; if Addon.Options then Addon.Options:Refresh() end end)
+    slider:SetScript("OnMouseUp", function()
+        if applyOnRelease ~= false and Addon.db and Addon.db.enabled then Addon:Apply() end
+        if Addon.Options then Addon.Options:Refresh() end
+    end)
     container.slider = slider
     container.valueText = valueText
     container.formatValue = formatValue
     return container
+end
+
+local THEMES = {
+    midnight = { label = "Midnight", background = { 0.025, 0.035, 0.065 }, border = { 0.18, 0.25, 0.50 }, accent = { 0.58, 0.70, 1.00 } },
+    indigo = { label = "Indigo", background = { 0.045, 0.035, 0.095 }, border = { 0.32, 0.24, 0.62 }, accent = { 0.75, 0.64, 1.00 } },
+    classic = { label = "Classic", background = { 0.075, 0.055, 0.035 }, border = { 0.55, 0.40, 0.20 }, accent = { 1.00, 0.82, 0.56 } },
+}
+local THEME_ORDER = { "midnight", "indigo", "classic" }
+
+function Options:ApplyTheme()
+    if not self.frame or not Addon.db then return end
+    local profile = Addon:GetProfile()
+    local theme = THEMES[profile.themePreset] or THEMES.midnight
+    local opacity = profile.backgroundOpacity or 0.92
+    if self.frame.SetBackdropColor then
+        self.frame:SetBackdropColor(theme.background[1], theme.background[2], theme.background[3], opacity)
+    elseif self.frame.backgroundTexture and self.frame.backgroundTexture.SetColorTexture then
+        self.frame.backgroundTexture:SetColorTexture(theme.background[1], theme.background[2], theme.background[3], opacity)
+    end
+    if self.frame.SetBackdropBorderColor then
+        self.frame:SetBackdropBorderColor(theme.border[1], theme.border[2], theme.border[3], 1)
+    end
+    if self.title and self.title.SetTextColor then
+        self.title:SetTextColor(theme.accent[1], theme.accent[2], theme.accent[3], 1)
+    end
+    if self.wizard then
+        if self.wizard.SetBackdropColor then
+            self.wizard:SetBackdropColor(theme.background[1], theme.background[2], theme.background[3], opacity)
+        end
+        if self.wizard.SetBackdropBorderColor then
+            self.wizard:SetBackdropBorderColor(theme.border[1], theme.border[2], theme.border[3], 1)
+        end
+    end
+end
+
+function Options:CycleTheme()
+    local current = Addon:GetProfile().themePreset
+    local nextTheme = THEME_ORDER[1]
+    for index, themeName in ipairs(THEME_ORDER) do
+        if themeName == current then
+            nextTheme = THEME_ORDER[index % #THEME_ORDER + 1]
+            break
+        end
+    end
+    Addon:SetProfileValue("themePreset", nextTheme)
+    self:Refresh()
 end
 
 function Options:Refresh()
@@ -56,6 +105,8 @@ function Options:Refresh()
     self.sideLeft.label:SetText(profile.mainhandSide == "left" and "[ Mainhand left ]" or "Mainhand left")
     self.sideRight.label:SetText(profile.mainhandSide == "right" and "[ Mainhand right ]" or "Mainhand right")
     self.rawMouseButton.label:SetText("Raw mouse: " .. (profile.rawMouseEnabled and "ON" or "OFF"))
+    if self.themeButton then self.themeButton.label:SetText("Theme: " .. (THEMES[profile.themePreset] or THEMES.midnight).label) end
+    if self.backgroundOpacitySlider then self.backgroundOpacitySlider.slider:SetValue(profile.backgroundOpacity or 0.92) end
     self.profileLabel:SetText("Profile: " .. Addon:GetActiveProfileName() .. " (" .. tostring(#Addon:GetProfileNames()) .. ")")
     self.widthSlider.slider:SetValue(profile.mainhandWidthPercent)
     self.seamSlider.slider:SetValue(profile.seamUiUnits)
@@ -66,6 +117,7 @@ function Options:Refresh()
     else
         self.status:SetText("Layout unavailable: " .. tostring(err))
     end
+    self:ApplyTheme()
     if self.previewButton and self.keepPreviewButton then
         if self.previewActive then
             self.previewButton:Hide()
@@ -193,6 +245,7 @@ function Options:RefreshWizard()
         self.wizardStep = currentStep + 1
         self:RefreshWizard()
     end)
+    self:ApplyTheme()
 end
 
 function Options:ShowWizard()
@@ -268,9 +321,11 @@ function Options:Create()
         local bg = frame:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints()
         bg:SetColorTexture(0.035, 0.045, 0.075, 0.98)
+        frame.backgroundTexture = bg
     end
     local title = makeText(frame, "Forever MultiMonitor", 18)
     title:SetPoint("TOPLEFT", 20, -18)
+    self.title = title
     local close = makeButton(frame, "X", 28, 24, function() frame:Hide() end)
     close:SetPoint("TOPRIGHT", -18, -14)
     self.status = makeText(frame, "", 11)
@@ -324,13 +379,20 @@ function Options:Create()
     end)
     self.profileDeleteButton:SetPoint("TOPLEFT", 390, -108)
     self.settings:SetPoint("TOPLEFT", 22, -146)
-    self.settings:SetSize(450, 250)
+    self.settings:SetSize(450, 300)
     self.widthSlider = makeSlider(self.settings, "Mainhand width", 25, 90, 1, function(v) return string.format("%.0f%%", v) end, function(v) Addon:SetProfileValue("mainhandWidthPercent", v) end)
     self.widthSlider:SetPoint("TOPLEFT", 0, 0)
     self.seamSlider = makeSlider(self.settings, "Seam offset (logical UI units)", 0, 100, 1, function(v) return string.format("%.0f", v) end, function(v) Addon:SetProfileValue("seamUiUnits", v) end)
     self.seamSlider:SetPoint("TOPLEFT", 0, -64)
     self.scaleSlider = makeSlider(self.settings, "Panel scale", 0.5, 1.5, 0.05, function(v) return string.format("%.2f", v) end, function(v) Addon:SetProfileValue("panelScale", v) end)
     self.scaleSlider:SetPoint("TOPLEFT", 0, -128)
+    self.themeButton = makeButton(self.settings, "Theme: Midnight", 160, 28, function() self:CycleTheme() end)
+    self.themeButton:SetPoint("TOPLEFT", 0, -190)
+    self.backgroundOpacitySlider = makeSlider(self.settings, "Dashboard background opacity", 0.5, 1, 0.05, function(v) return string.format("%.0f%%", v * 100) end, function(v)
+        Addon:SetProfileValue("backgroundOpacity", v)
+        self:ApplyTheme()
+    end, false)
+    self.backgroundOpacitySlider:SetPoint("TOPLEFT", 0, -224)
     self.rawMouseButton = makeButton(frame, "Raw mouse: ON", 150, 28, function()
         Addon:SetProfileValue("rawMouseEnabled", not Addon:GetProfile().rawMouseEnabled)
         if Addon.RawMouse then Addon.RawMouse:Sync() end

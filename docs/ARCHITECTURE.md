@@ -24,7 +24,7 @@ The helper makes the game window cover the selected display bounds. The addon th
 - `Panels.lua`: discovery hooks, in-session anchor/scale snapshots, per-character normalized drag-position persistence and restoration.
 - `Recovery.lua`: debounced login, world-entry and display/UI-scale recovery.
 - `Commands.lua`: slash-command interface, including `/fmm config`.
-- `Options.lua`: in-game settings window, profile controls and instruction-only setup page.
+- `Options.lua`: in-game dashboard, per-profile Midnight/Indigo/Classic theme presets and opacity, named profiles, three-step setup wizard, reversible preview and diagnostic integration.
 - `Init.lua`: addon lifecycle and current-state event coordination.
 
 ## Geometry model
