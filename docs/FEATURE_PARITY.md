@@ -15,7 +15,7 @@ Target: the public user-facing Offhand workflow, excluding the Companion process
 | Combat-safe operations | Lua addon | Keyed queue converges on current SavedVariables state after combat | Lua 5.1 runtime simulation; live combat test open |
 | Recovery after login/world/UI scale/display-size changes | Lua addon | Debounced recovery and generation checks | Lua 5.1 runtime simulation; live client test open |
 | Raw mouse input | Lua addon | Saves previous `rawMouseEnable`, enables while active and restores on disable/logout | Lua 5.1 simulation; real Forever CVar behavior open |
-| In-game options dashboard | Lua addon | `/fmm config`: enable, side, width, seam, scale, raw mouse, profile controls, apply/reset, 15-second preview with automatic rollback and explicit Keep | Lua 5.1 runtime simulation; in-client visual/input test open |
+| In-game options dashboard | Lua addon | `/fmm config`: enable, side, width, seam, scale, raw mouse, profile controls, apply/reset, 15-second preview with automatic rollback and explicit Keep, plus `/fmm diagnostics` runtime reporting | Lua 5.1 runtime simulation; in-client visual/input test open |
 | Setup wizard | Lua addon | Three-step stateful flow: native-window preparation instructions, live Mainhand side/width controls, layout activation and finish/back navigation | Lua 5.1 runtime simulation; in-client visual and native-helper handoff tests open |
 | Named profiles / profile switching | Lua addon | Legacy settings migrate to `Default`; named profiles can be created, saved, loaded and deleted with active/default protection | Lua 5.1 runtime simulation; live UI/reload test open |
 | Themes / custom backgrounds / media import | Lua addon | Not implemented | Open |

@@ -1,7 +1,35 @@
 local _, Addon = ...
 
 local function printHelp()
-    Addon:Print("Commands: /fmm status | apply | enable | disable | side left|right | width 25-90 | seam 0-100 | scale 0.5-1.5 | rawmouse on|off | profile list|create|use|delete | config | reset")
+    Addon:Print("Commands: /fmm status | diagnostics | apply | enable | disable | side left|right | width 25-90 | seam 0-100 | scale 0.5-1.5 | rawmouse on|off | profile list|create|use|delete | config | reset")
+end
+
+local function countEntries(collection)
+    if type(collection) ~= "table" then return 0 end
+    local count = 0
+    for _ in pairs(collection) do count = count + 1 end
+    return count
+end
+
+local function printDiagnostics()
+    local panels = Addon.Panels or {}
+    local registered = Addon.PanelRegistry and Addon.PanelRegistry:GetKnownNames() or {}
+    local profile = Addon:GetProfile()
+    local layout, geometryError = Addon.Geometry:Calculate(profile)
+    local runtime = Addon.runtime or {}
+    Addon:Print("Diagnostics | addon " .. tostring(Addon.version or "unknown") .. " | client " .. tostring(runtime.version or "unknown") .. " build " .. tostring(runtime.build or "unknown"))
+    Addon:Print(string.format("Panels: %d registered | %d hooked | %d assigned | %d excluded | %d active restore snapshots",
+        #registered, tonumber(panels.discoveryCount) or 0, countEntries(panels.assignments),
+        countEntries(panels.excluded), countEntries(panels.originalPoints)))
+    Addon:Print("Deferred operations: " .. tostring(countEntries(Addon.pendingCallbacks)) .. " | preview active: " .. tostring(Addon.Options and Addon.Options.previewActive or false))
+    Addon:Print("Profile: " .. tostring(Addon:GetActiveProfileName()) .. " | layout enabled: " .. tostring(Addon.db and Addon.db.enabled) .. " | raw mouse: " .. tostring(profile.rawMouseEnabled))
+    if layout then
+        Addon:Print(string.format("Geometry: canvas %.0f x %.0f | Mainhand %.0f%% %s | Offhand %.0f UI units",
+            layout.canvasWidth, layout.canvasHeight, profile.mainhandWidthPercent, profile.mainhandSide, layout.workspace.width))
+    else
+        Addon:Print("Geometry unavailable: " .. tostring(geometryError))
+    end
+    if Addon.lastError then Addon:Print("Last error: " .. Addon.lastError) else Addon:Print("Last error: none") end
 end
 
 local function printStatus()
@@ -48,6 +76,8 @@ function Addon:HandleCommand(message)
         self.Options:Toggle()
     elseif command == "status" then
         printStatus()
+    elseif command == "diagnostics" then
+        printDiagnostics()
     elseif command == "enable" then
         if self.Options then self.Options:CancelPreview(false) end
         self:SetEnabled(true)

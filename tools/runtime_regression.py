@@ -336,6 +336,7 @@ ForeverMultiMonitor.RawMouse.Sync = function() rawSyncCount = rawSyncCount + 1 e
 lua.execute((ROOT / "Core" / "Options.lua").read_text(encoding="utf-8-sig"), "ForeverMultiMonitor", addon)
 lua.execute((ROOT / "Core" / "Commands.lua").read_text(encoding="utf-8-sig"), "ForeverMultiMonitor", addon)
 lua.execute("""
+ForeverMultiMonitor:HandleCommand("diagnostics")
 ForeverMultiMonitor.Options:Create()
 assert(not ForeverMultiMonitor.Options.frame:IsShown(), "options window should start hidden")
 ForeverMultiMonitor.Options:Toggle()

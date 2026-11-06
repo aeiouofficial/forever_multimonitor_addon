@@ -1,3 +1,24 @@
+## [0.3.6] - 2026-11-06
+
+### Added
+- Added `/fmm diagnostics` to report addon/client versions, geometry, active profile, registered/hooked/assigned/excluded panel counts, active restore snapshots, deferred operations, preview state and last error.
+- Added runtime invocation and source regression coverage for the diagnostics command.
+
+### Fixed
+- Updated the runtime addon version constant to `0.3.6` so `/fmm diagnostics` reports the same version as the TOC and release docs.
+
+### Changed
+- Added diagnostics to command help, README, setup and test matrix.
+
+### Verification
+- `python tools/runtime_regression.py`: PASS, including diagnostics invocation.
+- `node tools/regression.js`: 52 source regression assertions passed.
+- `node tools/validate.js`: PASS.
+- `git diff --check`: PASS.
+
+### Remaining limitations
+- Diagnostics are chat output and do not yet provide a persistent in-game diagnostic panel or exported support bundle.
+
 ## [0.3.5] - 2026-11-06
 
 ### Added

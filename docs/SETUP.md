@@ -53,6 +53,8 @@ Do not delete or move the helper executable or its `window-state.json` until res
 
 Named profile commands remain available: `/fmm profile list`, `/fmm profile create Desk`, `/fmm profile use Desk`, `/fmm profile delete Desk`. The protected `Default` profile cannot be deleted.
 
+Diagnostics are available at any time with `/fmm diagnostics`; the command reports current panel ownership, active restore snapshots, deferred operations, preview state, geometry and the last captured error without changing the layout.
+
 Slash-command fallback remains available:
 
 ```text
