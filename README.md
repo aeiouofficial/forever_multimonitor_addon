@@ -12,7 +12,9 @@ The inspected package license permits personal, non-commercial in-game use and p
 
 **The requested feature set is incomplete.** The local implementation validates exact physical game/workspace rectangles for offset and stacked displays and has an explicitly selected single-screen ultrawide mode. Remaining gaps include Forever cold-launch SavedVariables recovery; player-confirmed protected Edit Mode fallback/restore prompts; broader panel-family lifecycle and open-state persistence beyond current routing/default bags; minimap/map-size and popup/chat-bubble behavior; custom theme colors and cross-character profile copy. The Windows helper is a CLI; it does not provide a graphical display selector, cold-launch bridge, or automatic span workflow.
 
-The installed copy under the live Forever AddOns directory was hash-checked, but the running client has not been restarted or exercised in-game. The game UI automation pipe is unavailable. In-game settings visibility, layout behavior, combat/taint, physical hotplug and mixed-DPI UI verification remain open.
+The installed copy under the live Forever AddOns directory was hash-checked, but the settings and layout have not been verified in-game. In-game settings visibility, layout behavior, combat/taint, physical hotplug and mixed-DPI UI verification remain open.
+
+The latest local checks passed: 67 source regression checks, validation of 17 TOC Lua modules, the Lua 5.1 runtime suite and the Windows helper Release build. See [the test matrix](docs/TEST_MATRIX.md) for the checks and remaining live-client gates.
 
 ## Target client
 

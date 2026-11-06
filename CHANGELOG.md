@@ -10,7 +10,7 @@
 ### Fixed
 - Failed direct and post-combat reapply now disables the persisted layout and rolls back panels, viewport, raw mouse and World Map Escape state. `RunWhenSafe` preserves a callback's detailed error instead of replacing it with a generic rejection. Added Lua 5.1 fault injection for viewport exceptions and invalid geometry.
 - Forever Professions-family frames remain Blizzard-owned by default, and forbidden frames are not hooked or routed. Added Lua 5.1 ownership-boundary checks.
-- Normal span and native geometry handoff now reject anything other than exactly two selected displays. An explicit absolute `--addon-dir` on any drive, including C:, is accepted only when both expected addon files exist.
+- Normal span requires exactly two selected displays; the explicit `--single-ultrawide` mode requires exactly one. An absolute `--addon-dir` on any drive, including C:, is accepted only when both expected addon files exist.
 - Panel restoration now rolls back a failed anchor/scale change, retains its original snapshot for retry, and reports the failure. Layout apply treats any panel-routing failure as a failure, disables the attempted layout and restores viewport, panels and raw mouse.
 - Deferred callbacks that return `false` now report their reason. Enable/reset/apply commands report actual outcomes; a failed enable no longer persists as active, and preview cannot start or be confirmed after a failed apply.
 - The dashboard is registered in WoW's AddOns settings page through the legacy or modern settings API and opens from the branded slash command.
