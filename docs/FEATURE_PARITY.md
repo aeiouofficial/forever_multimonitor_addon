@@ -27,14 +27,14 @@ Target: the public user-facing Offhand workflow, excluding the Companion process
 | Native HWND resize / borderless placement | Windows helper | One-shot rectangular union of selected display bounds and border-style removal | Compiled; not executed against live WoW |
 | Original native window restoration | Windows helper | Saves style/ex-style and full `WINDOWPLACEMENT`; explicit `restore` command | Compiled; round-trip live window test open |
 | Mixed DPI / asymmetric / stacked monitor geometry | Windows helper | Reports DPI and monitor bounds; union rectangle used for placement | Enumeration exercised; real WoW mixed-DPI placement unverified |
-| Display disconnect/reconnect / hotplug rollback | Windows helper | Not implemented; helper is one-shot | Open |
+| Display disconnect/reconnect / hotplug rollback | Windows helper | Opt-in polling `watch` tracks stable selected display IDs; on loss it restores the original visible position or falls back to the primary connected display. Reconnect/reapply is not automatic | Pure helper self-test; physical disconnect/reconnect test open |
 | Direct helper-to-addon geometry handoff | Integration | Not implemented; addon reads the resulting combined `UIParent` canvas and retains manual geometry controls | Open |
 | Resident monitoring / auto-start / Companion process | Excluded | No service, tray resident, auto-start, Companion or Companion protocol | Intentional scope boundary |
 | Full Offhand feature parity | Both | Not achieved | Release gate open |
 
 ## Hard technical boundary
 
-WoW addon Lua cannot enumerate Windows monitors, inspect physical monitor identities, resize/move the native WoW HWND or remove its native borders. Those operations require an OS-side process. `WindowsHelper` currently handles display enumeration and one-shot window placement/restoration. It is not a drop-in Companion replacement: it has no hotplug watcher, resident process, display-selection GUI or direct data protocol to Lua.
+WoW addon Lua cannot enumerate Windows monitors, inspect physical monitor identities, resize/move the native WoW HWND or remove its native borders. Those operations require an OS-side process. `WindowsHelper` handles display enumeration, one-shot window placement, explicit restore and opt-in hotplug rollback. It is not a drop-in Companion replacement: it has no resident process, display-selection GUI or direct data protocol to Lua.
 
 The helper combines selected monitor bounds into a single rectangle. Non-adjacent or vertically offset displays can leave unused areas inside that rectangle. Mixed-DPI behavior also depends on the WoW process DPI-awareness mode, which the helper does not change.
 

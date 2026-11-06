@@ -7,9 +7,10 @@ Target: WoW Forever launch client `1.60.1.70790`, interface `16001`, game type `
 | Area | Command | Current result |
 |---|---|---|
 | Manifest / Lua structure / workspace restrictions | `node tools/validate.js` | PASS; 13 TOC Lua modules |
-| Source regression assertions | `node tools/regression.js` | PASS; 48 assertions |
+| Source regression assertions | `node tools/regression.js` | PASS; 49 assertions |
 | Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` | PASS; geometry, named profiles, options window, combat, panel registry/discovery, show/hide restoration and combat visibility convergence, anchors, persistence, raw mouse and recovery scenarios |
 | Windows helper compile | `WindowsHelper/build.ps1` | PASS; .NET 10 Release build, 0 warnings / 0 errors |
+| Windows hotplug pure self-test | `ForeverMultiMonitor.WindowsHelper.exe self-test` | PASS; stable display identity, missing-display detection, safe primary fallback, partial-visibility handling and exact visible-position restore |
 | Windows display enumeration | `ForeverMultiMonitor.WindowsHelper.exe list` | PASS on development PC; two displays reported with device IDs, bounds and DPI |
 | Native WoW window placement/restore | `place` / `restore` against actual WoW | NOT RUN; requires intentional live-window test |
 | WoW in-client behavior | Manual matrix below | NOT RUN |
@@ -59,7 +60,7 @@ Lua mocks are not a substitute for the Forever client. Windows display enumerati
 | Restore | Place then run `restore` | Original styles, size, position and show state are restored; state file is removed |
 | Safety | Run `place` while restore state exists | Second placement is refused |
 | Failure recovery | Close/recreate WoW HWND before restore | Helper refuses to modify an unrelated HWND and retains restore state |
-| Hotplug | Disconnect a selected display during placement | Currently unsupported; must be implemented before full parity |
+| Hotplug | Run `watch`, disconnect a selected display, then reconnect it | Watch restores safely on disconnect; reconnect/reapply remains manual; physical test still pending |
 
 ## Environment capture
 

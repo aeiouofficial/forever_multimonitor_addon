@@ -29,7 +29,9 @@ Select the displays that should form the combined game canvas. Example only (the
 & $helper place --monitors "\\.\DISPLAY5,\\.\DISPLAY1" --process auto
 ```
 
-The helper locates a visible WoW process window, saves its original window styles and full `WINDOWPLACEMENT`, removes standard window borders and places it over the rectangular union of the selected display bounds. It exits immediately; no background process remains.
+The helper locates a visible WoW process window, saves its original window styles and full `WINDOWPLACEMENT`, removes standard window borders and places it over the rectangular union of the selected display bounds. `place` exits immediately.
+
+For opt-in disconnect recovery, use `watch` instead of `place`; it performs placement and then polls the selected physical display IDs until a display disappears or you press Ctrl+C. On either event it restores the original window position if still visible, otherwise it moves the window onto the primary connected display. It does not automatically reapply after a display reconnects.
 
 **Restore:**
 
@@ -75,4 +77,4 @@ If the helper is not used, place the WoW window manually across the displays or 
 
 ## Limitations
 
-The helper is one-shot. It does not monitor hotplug, auto-restore on display disconnect, install a service, start automatically or communicate with the addon through a Companion-like protocol. It combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The wizard guides the user through native-window preparation, Mainhand side/width configuration and activation, but Windows display enumeration and placement remain manual helper CLI operations; there is no integrated display selector or direct helper-to-addon handoff. Complete panel focus/Escape lifecycle, themes, custom backgrounds, Edit Mode and full Offhand parity remain open.
+The `place` command is one-shot. The optional foreground `watch` command polls selected display IDs and rolls back when one disappears; it does not automatically reapply when a display reconnects. No service or autostart is installed and no Companion-like protocol is used. The helper combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The wizard guides the user through native-window preparation, Mainhand side/width configuration and activation, but Windows display enumeration and placement remain manual helper CLI operations; there is no integrated display selector or direct helper-to-addon handoff. Complete panel focus/Escape lifecycle, themes, custom backgrounds, Edit Mode and full Offhand parity remain open.

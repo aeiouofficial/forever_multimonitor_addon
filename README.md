@@ -2,7 +2,7 @@
 
 A standalone, companion-free multi-monitor workspace for **World of Warcraft: Forever**. The project is an independent implementation of the public user-facing Offhand workflow; it does not copy Offhand source or implement its Companion process/protocol.
 
-> **Development status: 0.3.3.** The addon core, basic in-game settings window and one-shot Windows window helper are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
+> **Development status: 0.3.4.** The addon core, basic in-game settings window and Windows helper with one-shot placement plus opt-in hotplug watch are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
 
 ## Target client
 
@@ -31,7 +31,7 @@ The TOC interface number is a load contract, not proof of API behavior. Protecte
 
 ### Windows helper
 
-`WindowsHelper` is a separate one-shot Windows executable. It enumerates displays (device name/ID, physical bounds, primary flag and effective DPI), places a visible WoW process window across the selected display bounds, applies borderless styles, and saves the original style and full `WINDOWPLACEMENT` for explicit restore. It does not stay resident, install a service, start automatically, use a network connection or communicate with Companion.
+`WindowsHelper` is a separate Windows executable. It enumerates displays (device name/ID, physical bounds, primary flag and effective DPI), places a visible WoW process window across selected display bounds, applies borderless styles, and saves the original style and full `WINDOWPLACEMENT` for explicit restore. `watch` is an optional, explicitly launched polling mode: it detects loss of a selected physical display and restores the original window state, falling back to the primary connected display if the original rectangle is no longer visible. It is not a service, does not start automatically, and does not use a network connection or Companion protocol.
 
 The helper makes the native window cover the selected displays. The addon then uses the resulting logical canvas and controls the in-game Mainhand/Offhand split. Monitor selection is currently a command-line operation, not part of the Lua UI.
 
@@ -51,11 +51,11 @@ The helper makes the native window cover the selected displays. The addon then u
 | Raw mouse | Original `rawMouseEnable` value is saved and restored | Lua 5.1 runtime simulation; live input test pending |
 | In-game options | Enable, side, width, seam, scale, raw mouse, named profiles, apply/reset and a three-step setup wizard with Mainhand controls and activation | Lua 5.1 runtime simulation; in-client visual/input test pending |
 | Windows display enumeration | Device names/IDs, bounds, primary flag and DPI | Built helper; enumerated connected displays on the development PC |
-| Native window placement | One-shot combined bounds, borderless styles and explicit full placement restore | .NET build; placement/restore not run against WoW |
+| Native window placement | One-shot placement, borderless styles, explicit restore and optional hotplug watch with safe fallback | .NET build and pure self-test; live WoW placement/hotplug tests pending |
 | Named profiles | Create, load, save, delete; legacy settings migrate to protected `Default` profile | Lua 5.1 runtime simulation; live UI/reload test pending |
 | Themes and custom backgrounds | Not implemented as a complete feature set | Open |
 | Edit Mode, protected HUD, Escape/focus and advanced panel lifecycle | Not implemented as a complete feature set | Open |
-| Display hotplug monitoring / automatic rollback | Not implemented; helper is one-shot | Open |
+| Display hotplug monitoring / automatic rollback | Opt-in watcher detects selected-display loss and restores to the original visible rectangle or primary-display fallback; automatic reconnect/reapply is not implemented | Helper self-test; physical disconnect test open |
 | Full Offhand feature parity | Not achieved | Release gate open |
 
 ## Addon commands
@@ -88,8 +88,11 @@ Example:
 ```powershell
 $helper = ".\WindowsHelper\bin\Release\net10.0-windows\ForeverMultiMonitor.WindowsHelper.exe"
 & $helper list
+# Option A: one-shot placement, then restore when finished
 & $helper place --monitors "\\.\DISPLAY5,\\.\DISPLAY1" --process auto
 & $helper restore
+# Option B instead of place: keep watching for display loss until Ctrl+C
+& $helper watch --monitors "\\.\DISPLAY5,\\.\DISPLAY1" --process auto --interval-ms 1000
 ```
 
 Use only display names returned by `list`. `place` refuses to overwrite an existing restore state. Keep the executable and its `window-state.json` together until `restore` succeeds. Read [Windows helper documentation](WindowsHelper/README.md) before placing a live game window.
@@ -115,12 +118,12 @@ $env:PYTHONPATH = Join-Path $env:TEMP "python"
 python tools/runtime_regression.py
 ```
 
-`WindowsHelper/build.ps1` builds the native helper. `list` is safe to run during verification; `place` is deliberately not run automatically because it changes the live WoW window.
+`WindowsHelper/build.ps1` builds the native helper. `list` and `self-test` are safe to run during verification; `place` and `watch` are deliberately not run automatically because they change the live WoW window.
 
-At the current checkpoint, 48 source regression assertions, Lua 5.1 syntax parsing and mocked runtime scenarios, including named profile migration/switching, options profile controls and the guided wizard, panel hide/restore/reopen and combat visibility convergence, pass; the Windows helper builds with zero warnings/errors and its display enumeration was exercised. **No WoW client live test or native window place/restore test has been performed.** See [the test matrix](docs/TEST_MATRIX.md) before calling the project release-ready.
+At the current checkpoint, 49 source regression assertions, Lua 5.1 syntax parsing and mocked runtime scenarios, including named profile migration/switching, options profile controls and the guided wizard, panel hide/restore/reopen and combat visibility convergence, pass; the Windows helper builds with zero warnings/errors and its display enumeration was exercised. **No WoW client live test or native window place/restore test has been performed.** See [the test matrix](docs/TEST_MATRIX.md) before calling the project release-ready.
 
 ## Technical boundary
 
-WoW Lua cannot enumerate physical Windows monitors, change the native WoW HWND style, or move/resize that window. Those operations belong to `WindowsHelper`. The helper does not yet provide hotplug monitoring, a resident controller, a graphical display selector or a direct helper-to-addon data channel. The addon consumes the resulting combined canvas through `UIParent` and retains a manual geometry fallback.
+WoW Lua cannot enumerate physical Windows monitors, change the native WoW HWND style, or move/resize that window. Those operations belong to `WindowsHelper`. The helper provides opt-in hotplug monitoring but no resident controller, graphical display selector or direct helper-to-addon data channel. Automatic reconnect/reapply remains open. The addon consumes the resulting combined canvas through `UIParent` and retains a manual geometry fallback.
 
 See [Architecture](docs/ARCHITECTURE.md), [Feature Parity](docs/FEATURE_PARITY.md), [Setup](docs/SETUP.md), [Test Matrix](docs/TEST_MATRIX.md), and [Changelog](CHANGELOG.md).

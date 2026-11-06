@@ -47,7 +47,7 @@ internal static class Program
         public int Height => Bottom - Top;
     }
 
-    private sealed record WindowState(int ProcessId, long Handle, long OriginalStyle, long OriginalExtendedStyle, WindowPlacement OriginalPlacement, string[] Displays, DateTimeOffset SavedAt);
+    private sealed record WindowState(int ProcessId, long Handle, long OriginalStyle, long OriginalExtendedStyle, WindowPlacement OriginalPlacement, string[] Displays, DateTimeOffset SavedAt, string[]? DisplayIds = null);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NativePoint { public int X, Y; }
@@ -93,7 +93,9 @@ internal static class Program
             {
                 "list" => ListDisplays(),
                 "place" => Place(args),
+                "watch" => Watch(args),
                 "restore" => Restore(),
+                "self-test" => SelfTest(),
                 _ => Fail("Unknown command. Run `ForeverMultiMonitor.WindowsHelper help`.")
             };
         }
@@ -109,8 +111,10 @@ internal static class Program
         Console.WriteLine("Forever MultiMonitor Windows Helper");
         Console.WriteLine("  list");
         Console.WriteLine("  place --monitors \\\\.\\DISPLAY1[,\\\\.\\DISPLAY2] [--process auto|Wow.exe]");
+        Console.WriteLine("  watch --monitors <device-names> [--process auto|Wow.exe] [--interval-ms 1000]");
         Console.WriteLine("  restore");
-        Console.WriteLine("Placement is one-shot. Original window style and full WINDOWPLACEMENT are saved for restore.");
+        Console.WriteLine("  self-test");
+        Console.WriteLine("place is one-shot. watch is opt-in and restores the WoW window on selected-display loss or Ctrl+C.");
         Console.WriteLine("No service, startup task, telemetry, network connection or Companion protocol is used.");
     }
 
@@ -173,7 +177,9 @@ internal static class Program
         if (processId == 0 || pid == 0) return Fail("Could not resolve the selected window process.");
         var style = GetWindowLongPtr(window, GwlStyle).ToInt64();
         var exStyle = GetWindowLongPtr(window, GwlExStyle).ToInt64();
-        var state = new WindowState((int)pid, window.ToInt64(), style, exStyle, originalPlacement, monitors.Select(m => m.Device).ToArray(), DateTimeOffset.UtcNow);
+        var state = new WindowState((int)pid, window.ToInt64(), style, exStyle, originalPlacement,
+            monitors.Select(m => m.Device).ToArray(), DateTimeOffset.UtcNow,
+            monitors.Select(DisplayIdentity).ToArray());
         Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
         WriteStateAtomically(state);
 
@@ -202,9 +208,161 @@ internal static class Program
     {
         if (!File.Exists(StatePath)) return Fail("No saved window state exists; nothing to restore.");
         var state = JsonSerializer.Deserialize<WindowState>(File.ReadAllText(StatePath)) ?? throw new InvalidDataException("Saved window state is invalid.");
-        if (!RestoreState(state)) return Fail("Restore failed; state file was retained for retry.");
+        var connected = EnumerateMonitors();
+        if (!RestoreStateSafely(state, connected, out var usedFallback)) return Fail("Restore failed; state file was retained for retry.");
         File.Delete(StatePath);
-        Console.WriteLine("Original WoW window bounds and styles restored.");
+        Console.WriteLine(usedFallback
+            ? "Original styles restored; original position was off-screen, so WoW was moved onto the primary connected display."
+            : "Original WoW window bounds and styles restored.");
+        return 0;
+    }
+
+    private static int Watch(string[] args)
+    {
+        var interval = 1000;
+        var intervalValue = ValueAfter(args, "--interval-ms");
+        if (intervalValue is not null && (!int.TryParse(intervalValue, out interval) || interval < 250 || interval > 10000))
+            return Fail("--interval-ms must be an integer between 250 and 10000.");
+
+        var placeResult = Place(args);
+        if (placeResult != 0) return placeResult;
+        var state = JsonSerializer.Deserialize<WindowState>(File.ReadAllText(StatePath)) ?? throw new InvalidDataException("Saved watch state is invalid.");
+        var stopRequested = false;
+        ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
+        {
+            eventArgs.Cancel = true;
+            stopRequested = true;
+        };
+        Console.CancelKeyPress += cancelHandler;
+        Console.WriteLine($"Hotplug watch active for {string.Join(", ", state.Displays)}; poll interval {interval} ms. Press Ctrl+C to restore and exit.");
+        try
+        {
+            while (!stopRequested)
+            {
+                Thread.Sleep(interval);
+                if (!File.Exists(StatePath))
+                {
+                    Console.WriteLine("Restore state was removed by another helper process; watch is stopping.");
+                    return 0;
+                }
+                var connected = EnumerateMonitors();
+                var missing = MissingDisplayIdentities(state, connected);
+                if (missing.Length > 0)
+                {
+                    return RestoreAfterTopologyLoss(state, connected,
+                        "Selected display disconnected: " + string.Join(", ", missing));
+                }
+                var hwnd = new nint(state.Handle);
+                if (!IsWindow(hwnd)) return Fail("WoW window no longer exists; restore state was retained for diagnosis.");
+                GetWindowThreadProcessId(hwnd, out var processId);
+                if (processId != (uint)state.ProcessId) return Fail("WoW window handle now belongs to another process; restore state was retained.");
+            }
+            return RestoreAfterTopologyLoss(state, EnumerateMonitors(), "Watch stopped by user.");
+        }
+        finally
+        {
+            Console.CancelKeyPress -= cancelHandler;
+        }
+    }
+
+    private static int RestoreAfterTopologyLoss(WindowState state, List<MonitorRecord> connected, string reason)
+    {
+        if (!RestoreStateSafely(state, connected, out var usedFallback))
+            return Fail(reason + " Restore failed; state file was retained for retry.");
+        if (File.Exists(StatePath)) File.Delete(StatePath);
+        Console.WriteLine(reason);
+        Console.WriteLine(usedFallback
+            ? "Original styles restored; WoW was placed on the primary connected display because its original position is no longer visible."
+            : "Original window position and styles restored.");
+        return 0;
+    }
+
+    private static string DisplayIdentity(MonitorRecord monitor) =>
+        string.IsNullOrWhiteSpace(monitor.DeviceId) ? monitor.Device : monitor.DeviceId;
+
+    private static string[] MissingDisplayIdentities(WindowState state, IReadOnlyCollection<MonitorRecord> connected)
+    {
+        var selected = state.DisplayIds is { Length: > 0 } ? state.DisplayIds : state.Displays;
+        var available = connected.Select(DisplayIdentity).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return selected.Where(identity => !available.Contains(identity))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static WindowPlacement BuildSafeRestorePlacement(WindowPlacement original, IReadOnlyList<MonitorRecord> connected, out bool usedFallback)
+    {
+        usedFallback = false;
+        var bounds = original.NormalPosition;
+        var originalWidth = Math.Max(1, bounds.Right - bounds.Left);
+        var originalHeight = Math.Max(1, bounds.Bottom - bounds.Top);
+        var minimumVisibleWidth = Math.Min(320, originalWidth);
+        var minimumVisibleHeight = Math.Min(180, originalHeight);
+        var hasUsableIntersection = connected.Any(monitor =>
+        {
+            var overlapWidth = Math.Min(bounds.Right, monitor.Right) - Math.Max(bounds.Left, monitor.Left);
+            var overlapHeight = Math.Min(bounds.Bottom, monitor.Bottom) - Math.Max(bounds.Top, monitor.Top);
+            return overlapWidth >= minimumVisibleWidth && overlapHeight >= minimumVisibleHeight;
+        });
+        if (hasUsableIntersection) return original;
+
+        var target = connected.FirstOrDefault(monitor => monitor.Primary) ?? connected.FirstOrDefault();
+        if (target is null || target.Width <= 0 || target.Height <= 0)
+            throw new InvalidOperationException("No connected display is available for safe window recovery.");
+
+        var width = Math.Min(Math.Max(1, bounds.Right - bounds.Left), target.Width);
+        var height = Math.Min(Math.Max(1, bounds.Bottom - bounds.Top), target.Height);
+        var left = target.Left + (target.Width - width) / 2;
+        var top = target.Top + (target.Height - height) / 2;
+        var safe = original;
+        safe.NormalPosition = new Rect { Left = left, Top = top, Right = left + width, Bottom = top + height };
+        safe.ShowCommand = SwRestore;
+        usedFallback = true;
+        return safe;
+    }
+
+    private static bool RestoreStateSafely(WindowState state, IReadOnlyList<MonitorRecord> connected, out bool usedFallback)
+    {
+        usedFallback = false;
+        var hwnd = new nint(state.Handle);
+        if (!IsWindow(hwnd)) return false;
+        GetWindowThreadProcessId(hwnd, out var pid);
+        if (pid != (uint)state.ProcessId) return false;
+
+        var placement = BuildSafeRestorePlacement(state.OriginalPlacement, connected, out usedFallback);
+        if (!TrySetWindowLong(hwnd, GwlStyle, new nint(state.OriginalStyle))) return false;
+        if (!TrySetWindowLong(hwnd, GwlExStyle, new nint(state.OriginalExtendedStyle))) return false;
+        var bounds = placement.NormalPosition;
+        if (!SetWindowPos(hwnd, 0, bounds.Left, bounds.Top, bounds.Right - bounds.Left, bounds.Bottom - bounds.Top, SwpNoZOrder | SwpNoActivate | SwpFrameChanged)) return false;
+        placement.Length = Marshal.SizeOf<WindowPlacement>();
+        return SetWindowPlacement(hwnd, ref placement);
+    }
+
+    private static int SelfTest()
+    {
+        var primary = new MonitorRecord(@"\\.\DISPLAY1", "monitor-primary", "Primary", true, 0, 0, 1920, 1080, 96, 96);
+        var secondary = new MonitorRecord(@"\\.\DISPLAY2", "monitor-secondary", "Secondary", false, 1920, 0, 3840, 1080, 96, 96);
+        var state = new WindowState(1, 1, 0, 0, new WindowPlacement(),
+            new[] { primary.Device, secondary.Device }, DateTimeOffset.UtcNow,
+            new[] { DisplayIdentity(primary), DisplayIdentity(secondary) });
+        var missing = MissingDisplayIdentities(state, new[] { primary });
+        if (missing.Length != 1 || missing[0] != "monitor-secondary") return Fail("Hotplug self-test failed: missing display identity was not detected.");
+
+        var offscreen = new WindowPlacement { NormalPosition = new Rect { Left = 2200, Top = 100, Right = 3400, Bottom = 900 } };
+        var recovered = BuildSafeRestorePlacement(offscreen, new[] { primary }, out var usedFallback);
+        var recoveredBounds = recovered.NormalPosition;
+        if (!usedFallback || recoveredBounds.Left < primary.Left || recoveredBounds.Top < primary.Top ||
+            recoveredBounds.Right > primary.Right || recoveredBounds.Bottom > primary.Bottom)
+            return Fail("Hotplug self-test failed: off-screen original position was not clamped to the primary display.");
+
+        var partial = new WindowPlacement { NormalPosition = new Rect { Left = 1910, Top = 100, Right = 3110, Bottom = 900 } };
+        var partialRecovered = BuildSafeRestorePlacement(partial, new[] { primary }, out var partialFallback);
+        if (!partialFallback) return Fail("Hotplug self-test failed: a barely visible original window was not moved to safety.");
+
+        var visible = new WindowPlacement { NormalPosition = new Rect { Left = 100, Top = 100, Right = 1300, Bottom = 900 } };
+        var exact = BuildSafeRestorePlacement(visible, new[] { primary }, out var exactFallback);
+        if (exactFallback || exact.NormalPosition.Left != visible.NormalPosition.Left || exact.NormalPosition.Top != visible.NormalPosition.Top)
+            return Fail("Hotplug self-test failed: visible original position was not preserved.");
+
+        Console.WriteLine("PASS hotplug self-test: stable display identity, disconnect detection, off-screen/partial-visibility fallback and exact visible restore.");
         return 0;
     }
 

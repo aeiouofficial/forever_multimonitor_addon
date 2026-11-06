@@ -1,3 +1,25 @@
+## [0.3.4] - 2026-11-06
+
+### Added
+- Added an explicitly opt-in Windows helper `watch` command. It places the WoW window, polls selected stable monitor device IDs, and triggers rollback if a selected display disappears.
+- Added safe restore geometry: preserve the original rectangle when it intersects a connected display; otherwise center the restored window on the primary connected display.
+- Added Ctrl+C restoration, configurable 250?10000 ms polling, and a helper `self-test` covering stable display identity, disconnect detection and fallback geometry.
+
+### Changed
+- Manual `restore` now uses the same off-screen-safe fallback when the original monitor is no longer connected.
+- Bumped addon TOC/project documentation version to `0.3.4`.
+- Updated helper instructions, feature parity, README and test matrix. Reconnect/reapply remains explicitly manual.
+
+### Verification
+- Windows helper Release build: 0 warnings, 0 errors.
+- `ForeverMultiMonitor.WindowsHelper.exe self-test`: PASS.
+- Safe negative-path tests for an unknown display and an invalid watch interval: expected exit code 2; no restore state created and no game window changed.
+- `node tools/regression.js`: 49 source regression assertions passed.
+- `git diff --check`: PASS.
+
+### Remaining limitations
+- No physical display was disconnected during testing. The watch loop, HWND restore and primary fallback still require a controlled live test. There is no automatic reconnect/reapply, display-selection GUI or helper-to-addon geometry handoff.
+
 ## [0.3.3] - 2026-11-06
 
 ### Fixed

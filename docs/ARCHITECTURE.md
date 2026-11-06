@@ -43,7 +43,7 @@ Account settings live in `ForeverMultiMonitorDB`. Per-character `ForeverMultiMon
 
 ## Windows helper
 
-`WindowsHelper` is a .NET 10 Windows x64 executable using Win32 display/window APIs. `list` enumerates monitor device names/IDs, physical bounds, primary status and effective DPI. `place` resolves a visible WoW process window, stores its original style/ex-style and complete `WINDOWPLACEMENT`, removes standard border styles and positions the window on the rectangular union of selected displays. `restore` validates HWND/process identity and restores the original style and placement. The helper is one-shot; it does not watch hotplug or run in the background.
+`WindowsHelper` is a .NET 10 Windows x64 executable using Win32 display/window APIs. `list` enumerates monitor device names/IDs, physical bounds, primary status and effective DPI. `place` resolves a visible WoW process window, stores its original style/ex-style and complete `WINDOWPLACEMENT`, removes standard border styles and positions the window on the rectangular union of selected displays. `restore` validates HWND/process identity and restores the original style and placement, using the primary connected display if the original rectangle is no longer usefully visible. `watch` is an optional foreground polling mode that tracks the selected stable display IDs and invokes safe restore on display loss or Ctrl+C. No resident process, service or autostart is installed; reconnect/reapply remains manual.
 
 The restore state is stored next to the executable. The build script routes TEMP/TMP, .NET CLI home and NuGet cache into `.tmp` in the repository workspace. No external NuGet packages are used.
 
