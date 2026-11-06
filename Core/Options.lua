@@ -96,8 +96,8 @@ function Options:RefreshWizard()
     local page = WIZARD_STEPS[step]
     self.wizard.title:SetText(page.title)
     self.wizard.body:SetText(page.body)
-    self.wizard.back:SetText(step == 1 and "Cancel" or "Back")
-    self.wizard.next:SetText(step == #WIZARD_STEPS and "Finish" or "Next")
+    self.wizard.back.label:SetText(step == 1 and "Cancel" or "Back")
+    self.wizard.next.label:SetText(step == #WIZARD_STEPS and "Finish" or "Next")
     if step == 2 then
         local profile = Addon:GetProfile()
         self.wizard.sideLeft.label:SetText(profile.mainhandSide == "left" and "[ Mainhand left ]" or "Mainhand left")

@@ -1,3 +1,14 @@
+## [0.3.3] - 2026-11-06
+
+### Fixed
+- Updated wizard navigation labels through the custom button label FontStrings rather than relying on a button-level `SetText` method. This matches the control factory used by the rest of the options UI.
+- Extended the runtime regression to verify Next, Back and Finish labels alongside wizard navigation and activation.
+
+### Verification
+- `python tools/runtime_regression.py`: PASS, including wizard control-label and navigation assertions.
+- `node tools/regression.js`: 48 source regression assertions passed.
+- `git diff --check`: PASS.
+
 ## [0.3.2] - 2026-11-06
 
 ### Added

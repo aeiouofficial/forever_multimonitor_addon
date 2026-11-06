@@ -2,7 +2,7 @@
 
 A standalone, companion-free multi-monitor workspace for **World of Warcraft: Forever**. The project is an independent implementation of the public user-facing Offhand workflow; it does not copy Offhand source or implement its Companion process/protocol.
 
-> **Development status: 0.3.2.** The addon core, basic in-game settings window and one-shot Windows window helper are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
+> **Development status: 0.3.3.** The addon core, basic in-game settings window and one-shot Windows window helper are implemented and locally tested. This is not yet a complete or live-verified Offhand replacement. No untested feature is represented as complete.
 
 ## Target client
 
