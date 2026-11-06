@@ -11,6 +11,7 @@ Addon.frame:RegisterEvent("PLAYER_LOGOUT")
 
 function Addon:RefreshLayoutState()
     if self.db and self.db.enabled then self:Apply() else self:Reset() end
+    if self.MapEscape then self.MapEscape:Sync() end
 end
 
 function Addon:Apply()
@@ -27,7 +28,8 @@ function Addon:Apply()
         return false
     end
 
-    return self:RunWhenSafe(function()
+    local successfullyApplied = false
+    local dispatched = self:RunWhenSafe(function()
         if not (self.db and self.db.enabled) then
             self:RefreshLayoutState()
             return
@@ -37,8 +39,13 @@ function Addon:Apply()
             self:Print("Cannot apply layout: " .. tostring(currentError))
             return
         end
-        local viewportOK, viewportError = pcall(self.Viewport.Apply, self.Viewport, currentLayout)
-        if not viewportOK then self:ReportError("Viewport apply failed", viewportError) end
+        local callOK, applied, viewportError = pcall(self.Viewport.Apply, self.Viewport, currentLayout)
+        local viewportOK = callOK and applied == true
+        if not viewportOK then
+            self:ReportError("Viewport apply failed", callOK and (viewportError or "apply returned false") or applied)
+            if self.RawMouse then pcall(self.RawMouse.Restore, self.RawMouse) end
+            return
+        end
         self.Panels:Apply(currentLayout)
 
         if viewportOK then
@@ -50,7 +57,9 @@ function Addon:Apply()
         elseif self.RawMouse then
             pcall(self.RawMouse.Restore, self.RawMouse)
         end
+        successfullyApplied = true
     end, "layout-state")
+    return dispatched and successfullyApplied
 end
 
 function Addon:Reset()
@@ -64,8 +73,11 @@ function Addon:Reset()
             self:RefreshLayoutState()
             return
         end
-        local viewportOK, viewportError = pcall(self.Viewport.Restore, self.Viewport)
-        if not viewportOK then self:ReportError("Viewport restore failed", viewportError) end
+        local callOK, restored, viewportError = pcall(self.Viewport.Restore, self.Viewport)
+        if not callOK or restored ~= true then
+            self:ReportError("Viewport restore failed", callOK and (viewportError or "restore returned false") or restored)
+            return
+        end
         self.Panels:RestoreAll()
         if self.RawMouse then
             local rawOK, rawError = pcall(self.RawMouse.Restore, self.RawMouse)
@@ -79,6 +91,7 @@ Addon.frame:SetScript("OnEvent", function(_, event, loadedName)
         if loadedName == addonName then
             Addon:InitializeConfig()
             Addon.Compat:Initialize()
+            Addon:LoadNativeGeometry()
             Addon:Print("Loaded version " .. Addon.version .. " for Forever.")
         end
         if Addon.db then Addon.Panels:Initialize() end
@@ -86,8 +99,10 @@ Addon.frame:SetScript("OnEvent", function(_, event, loadedName)
         if not Addon.db then
             Addon:InitializeConfig()
             Addon.Compat:Initialize()
+            Addon:LoadNativeGeometry()
         end
         Addon.Panels:Initialize()
+        if Addon.MapEscape then Addon.MapEscape:Sync() end
         if Addon.db.enabled then
             Addon:ScheduleRecovery("PLAYER_LOGIN")
         elseif Addon.RawMouse then
@@ -98,6 +113,14 @@ Addon.frame:SetScript("OnEvent", function(_, event, loadedName)
     elseif event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
         Addon:ScheduleRecovery(event)
     elseif event == "PLAYER_LOGOUT" then
+        -- Avoid persisting a cropped viewport in the game layout cache.
+        if Addon.Viewport then
+            local callOK, restored, err = pcall(Addon.Viewport.Restore, Addon.Viewport)
+            if not callOK or restored ~= true then
+                Addon:ReportError("Viewport logout restoration failed", callOK and (err or "restore returned false") or restored)
+            end
+        end
+        if Addon.MapEscape then Addon.MapEscape:Restore() end
         if Addon.RawMouse then pcall(Addon.RawMouse.Restore, Addon.RawMouse) end
     elseif event == "PLAYER_REGEN_ENABLED" then
         Addon:FlushPendingWork()

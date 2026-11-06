@@ -4,6 +4,8 @@ The addon and the Windows helper perform different jobs. The Windows helper span
 
 ## 1. Prepare the game
 
+Install the addon files into `H:\World of Warcraft\_forever_\Interface\AddOns\ForeverMultiMonitor` before invoking the optional `--addon-dir` handoff. Only copy the TOC and `Core` modules, not workspace build or temp folders.
+
 1. Start WoW Forever and use **Windowed** mode (not Windowed Fullscreen).
 2. Arrange the displays in Windows Display Settings as they are physically arranged.
 3. Confirm the display resolution and scaling values. Mixed-DPI arrangements are enumerated by the helper, but pixel-perfect WoW behavior is not yet live-verified.
@@ -29,7 +31,7 @@ Select the displays that should form the combined game canvas. Example only (the
 & $helper place --monitors "\\.\DISPLAY5,\\.\DISPLAY1" --process auto
 ```
 
-The helper locates a visible WoW process window, saves its original window styles and full `WINDOWPLACEMENT`, removes standard window borders and places it over the rectangular union of the selected display bounds. `place` exits immediately.
+Optional parameters: `--mainhand` identifies a selected display (otherwise primary); `--addon-dir` is the absolute installed addon path. With both parameters the helper writes versioned data-only monitor geometry. After placement run `/reload`, then `/fmm native status` and `/fmm native apply`. For stacked, vertically offset or nonadjacent monitors, use manual Mainhand width/side calibration. The helper locates a visible WoW process window, saves its original window styles and full `WINDOWPLACEMENT`, removes standard window borders and places it over the rectangular union of the selected display bounds. `place` exits immediately.
 
 For opt-in disconnect recovery, use `watch` instead of `place`; it performs placement and then polls the selected physical display IDs until a display disappears or you press Ctrl+C. On either event it restores the original window position if still visible, otherwise it moves the window onto the primary connected display. It does not automatically reapply after a display reconnects.
 
@@ -47,10 +49,10 @@ Do not delete or move the helper executable or its `window-state.json` until res
 2. Fully restart WoW after first installation.
 3. Run `/fmm status` and confirm the logical canvas has the expected combined width.
 4. Open `/fmm config` and select **Setup wizard** for the three-step guided flow, or configure directly in the dashboard.
-5. Choose Mainhand left/right and set the width, seam offset and panel scale.
+5. Choose Mainhand left/right and set the width, seam offset and panel scale. The native calibration button and map Escape option are also available.
 6. Select a dashboard theme (Midnight, Indigo or Classic) and set background opacity between 50% and 100%; these values are stored per profile. The theme affects the options dashboard and wizard, not game panels.
-6. Create or load a named profile in the profile row if you need separate display layouts.
-7. Enable the layout and inspect the WorldFrame and supported panels. Use Apply after changing the native window arrangement.
+7. Create or load a named profile in the profile row if you need separate display layouts.
+8. Enable the layout and inspect the WorldFrame and supported panels. Use Apply after changing the native window arrangement.
 
 Named profile commands remain available: `/fmm profile list`, `/fmm profile create Desk`, `/fmm profile use Desk`, `/fmm profile delete Desk`. The protected `Default` profile cannot be deleted.
 
@@ -81,4 +83,4 @@ If the helper is not used, place the WoW window manually across the displays or 
 
 ## Limitations
 
-The `place` command is one-shot. The optional foreground `watch` command polls selected display IDs and rolls back when one disappears; it does not automatically reapply when a display reconnects. No service or autostart is installed and no Companion-like protocol is used. The helper combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The wizard guides the user through native-window preparation, Mainhand side/width configuration and activation, but Windows display enumeration and placement remain manual helper CLI operations; there is no integrated display selector or direct helper-to-addon handoff. Complete panel focus/Escape lifecycle, custom background/user-media import, Edit Mode and full Offhand parity remain open. Built-in dashboard themes do not theme in-game Blizzard panels.
+The `place` command is one-shot. The optional foreground `watch` command polls selected display IDs and rolls back when one disappears; it does not automatically reapply when a display reconnects. No service or autostart is installed and no Companion-like protocol is used. The helper combines selected monitor bounds into one rectangle; gaps between non-adjacent or vertically offset displays remain inside that rectangle. The wizard guides the user through native-window preparation, Mainhand side/width configuration and activation, but Windows display enumeration and placement remain manual helper CLI operations; there is no integrated display selector or resident interprocess protocol. Versioned, opt-in file-based handoff works via `--addon-dir` and `/reload`. Default World Map Escape handling and an Edit Mode pause are implemented but unverified in the real client; protected HUD creation, controller/gamepad focus, custom backgrounds and full Offhand parity remain open. Built-in dashboard themes do not theme in-game Blizzard panels.

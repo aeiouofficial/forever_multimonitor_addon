@@ -1,7 +1,7 @@
 local _, Addon = ...
 
 local function printHelp()
-    Addon:Print("Commands: /fmm status | diagnostics | apply | enable | disable | side left|right | width 25-90 | seam 0-100 | scale 0.5-1.5 | rawmouse on|off | profile list|create|use|delete | config | reset")
+    Addon:Print("Commands: /fmm status | diagnostics | apply | enable | disable | side left|right | width 25-90 | seam 0-100 | scale 0.5-1.5 | rawmouse on|off | mapescape on|off | native status|apply | profile list|create|use|delete | config | reset")
 end
 
 local function countEntries(collection)
@@ -23,6 +23,7 @@ local function printDiagnostics()
         countEntries(panels.excluded), countEntries(panels.originalPoints)))
     Addon:Print("Deferred operations: " .. tostring(countEntries(Addon.pendingCallbacks)) .. " | preview active: " .. tostring(Addon.Options and Addon.Options.previewActive or false))
     Addon:Print("Profile: " .. tostring(Addon:GetActiveProfileName()) .. " | layout enabled: " .. tostring(Addon.db and Addon.db.enabled) .. " | raw mouse: " .. tostring(profile.rawMouseEnabled))
+    Addon:Print("Map ESC protection: " .. tostring(profile.mapStaysOpenOnEscape) .. " | native handoff: " .. tostring(Addon.nativeGeometryStatus or "manual"))
     if layout then
         Addon:Print(string.format("Geometry: canvas %.0f x %.0f | Mainhand %.0f%% %s | Offhand %.0f UI units",
             layout.canvasWidth, layout.canvasHeight, profile.mainhandWidthPercent, profile.mainhandSide, layout.workspace.width))
@@ -135,6 +136,27 @@ function Addon:HandleCommand(message)
         end
         self:SetProfileValue("panelScale", scale)
         if self.db.enabled then self:Apply() end
+    elseif command == "native" then
+        value = value:lower()
+        if value == "status" then
+            self:Print("Native display geometry: " .. tostring(self.nativeGeometryStatus or "manual"))
+        elseif value == "apply" then
+            local ok, message = self:UseNativeGeometry()
+            self:Print(ok and message or ("Native calibration not applied: " .. tostring(message)))
+            if self.Options then self.Options:Refresh() end
+        else
+            self:Print("Usage: /fmm native status|apply")
+        end
+    elseif command == "mapescape" then
+        value = value:lower()
+        if value ~= "on" and value ~= "off" then
+            self:Print("Usage: /fmm mapescape on|off")
+            return
+        end
+        self:SetProfileValue("mapStaysOpenOnEscape", value == "on")
+        if self.MapEscape then self.MapEscape:Sync() end
+        if self.Options then self.Options:Refresh() end
+        self:Print("Keep world map open on Escape: " .. tostring(value == "on"))
     elseif command == "rawmouse" then
         value = value:lower()
         if value ~= "on" and value ~= "off" then

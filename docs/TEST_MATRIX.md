@@ -6,18 +6,20 @@ Target: WoW Forever launch client `1.60.1.70790`, interface `16001`, game type `
 
 | Area | Command | Current result |
 |---|---|---|
-| Manifest / Lua structure / workspace restrictions | `node tools/validate.js` | PASS; 13 TOC Lua modules |
-| Source regression assertions | `node tools/regression.js` | PASS; 53 assertions |
-| Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` | PASS; geometry, named profiles, options window, combat, panel registry/discovery, show/hide restoration, combat visibility convergence, preview timeout/Keep/command invalidation, theme preset validation/application/opacity, diagnostics command, anchors, persistence, raw mouse and recovery scenarios |
+| Manifest / Lua structure / workspace restrictions | `node tools/validate.js` | PASS; 16 TOC Lua modules |
+| Source regression assertions | `node tools/regression.js` | PASS; 54 assertions |
+| Lua 5.1 syntax and mocked runtime | `python tools/runtime_regression.py` with workspace `PYTHONPATH=.tmp/python` | PASS; geometry, profiles, options, panel families, combat, lifecycle, previews, themes, diagnostics, persistence and recovery; includes injected second WorldFrame anchor failure, failed panel SetPoint and false viewport return |
 | Windows helper compile | `WindowsHelper/build.ps1` | PASS; .NET 10 Release build, 0 warnings / 0 errors |
-| Windows hotplug pure self-test | `ForeverMultiMonitor.WindowsHelper.exe self-test` | PASS; stable display identity, missing-display detection, safe primary fallback, partial-visibility handling and exact visible-position restore |
+| Windows hotplug pure self-test | `ForeverMultiMonitor.WindowsHelper.exe self-test` | PASS; stable identity, disconnect detection, safe fallback, native handoff data generation and escaped Lua strings |
 | Windows display enumeration | `ForeverMultiMonitor.WindowsHelper.exe list` | PASS on development PC; two displays reported with device IDs, bounds and DPI |
-| Native WoW window placement/restore | `place` / `restore` against actual WoW | NOT RUN; requires intentional live-window test |
-| WoW in-client behavior | Manual matrix below | NOT RUN |
+| Native WoW window placement/restore | `place` / `restore` against actual WoW | PASS on 2026-11-06: Wow.exe PID 16016, DISPLAY5 (2560x1080) + DISPLAY1 (1920x1080) -> 4480x1080, then safe restore onto primary because original stored position was insufficiently visible; no state file retained |
+| WoW in-client behavior | Manual matrix below | NOT RUN; installation and client reload must be verified separately |
 
 Lua mocks are not a substitute for the Forever client. Windows display enumeration is a local Windows test, not proof of WoW window placement or mixed-DPI behavior.
 
 ## In-client release tests — not yet run
+
+Native HWND test success is **not** an in-client WorldFrame/UI test. All rows below remain open until verified inside Forever 1.60.1.70790. The live 2026-11-06 helper test used an already running client, and performed no addon installation, slash commands or combat interaction.
 
 | Area | Test | Pass criteria |
 |---|---|---|

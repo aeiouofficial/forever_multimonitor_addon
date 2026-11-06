@@ -105,6 +105,8 @@ function Options:Refresh()
     self.sideLeft.label:SetText(profile.mainhandSide == "left" and "[ Mainhand left ]" or "Mainhand left")
     self.sideRight.label:SetText(profile.mainhandSide == "right" and "[ Mainhand right ]" or "Mainhand right")
     self.rawMouseButton.label:SetText("Raw mouse: " .. (profile.rawMouseEnabled and "ON" or "OFF"))
+    if self.mapEscapeButton then self.mapEscapeButton.label:SetText("Map ESC: " .. (profile.mapStaysOpenOnEscape and "Keep open" or "Normal")) end
+    if self.nativeButton then self.nativeButton.label:SetText(Addon.nativeGeometry and "Calibrate from displays" or "Native: manual only") end
     if self.themeButton then self.themeButton.label:SetText("Theme: " .. (THEMES[profile.themePreset] or THEMES.midnight).label) end
     if self.backgroundOpacitySlider then self.backgroundOpacitySlider.slider:SetValue(profile.backgroundOpacity or 0.92) end
     self.profileLabel:SetText("Profile: " .. Addon:GetActiveProfileName() .. " (" .. tostring(#Addon:GetProfileNames()) .. ")")
@@ -306,7 +308,7 @@ end
 function Options:Create()
     if self.frame then return self.frame end
     local frame = CreateFrame("Frame", "ForeverMultiMonitorOptionsFrame", UIParent)
-    frame:SetSize(500, 500)
+    frame:SetSize(500, 610)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("DIALOG")
     frame:SetMovable(true)
@@ -393,6 +395,18 @@ function Options:Create()
         self:ApplyTheme()
     end, false)
     self.backgroundOpacitySlider:SetPoint("TOPLEFT", 0, -224)
+    self.mapEscapeButton = makeButton(frame, "Map ESC: Keep open", 150, 28, function()
+        Addon:SetProfileValue("mapStaysOpenOnEscape", not Addon:GetProfile().mapStaysOpenOnEscape)
+        if Addon.MapEscape then Addon.MapEscape:Sync() end
+        self:Refresh()
+    end)
+    self.mapEscapeButton:SetPoint("BOTTOMLEFT", 22, 134)
+    self.nativeButton = makeButton(frame, "Calibrate from displays", 180, 28, function()
+        local ok, message = Addon:UseNativeGeometry()
+        Addon:Print(ok and message or ("Native calibration unavailable: " .. tostring(message)))
+        self:Refresh()
+    end)
+    self.nativeButton:SetPoint("BOTTOMLEFT", 184, 134)
     self.rawMouseButton = makeButton(frame, "Raw mouse: ON", 150, 28, function()
         Addon:SetProfileValue("rawMouseEnabled", not Addon:GetProfile().rawMouseEnabled)
         if Addon.RawMouse then Addon.RawMouse:Sync() end

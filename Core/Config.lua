@@ -6,6 +6,7 @@ local DEFAULT_PROFILE = {
     seamUiUnits = 0,
     panelScale = 1.0,
     rawMouseEnabled = true,
+    mapStaysOpenOnEscape = true,
     themePreset = "midnight",
     backgroundOpacity = 0.92,
 }
@@ -47,6 +48,7 @@ local function validateProfile(profile)
     local scale = tonumber(profile.panelScale) or DEFAULT_PROFILE.panelScale
     profile.panelScale = math.max(0.5, math.min(1.5, scale))
     profile.rawMouseEnabled = profile.rawMouseEnabled ~= false
+    profile.mapStaysOpenOnEscape = profile.mapStaysOpenOnEscape ~= false
     if profile.themePreset ~= "midnight" and profile.themePreset ~= "indigo" and profile.themePreset ~= "classic" then
         profile.themePreset = DEFAULT_PROFILE.themePreset
     end
@@ -134,6 +136,7 @@ function Addon:SetActiveProfile(name)
     validateProfile(self.db.profile)
     self.db.profiles[name] = copyTable(self.db.profile)
     if self.db.enabled and self.Apply then self:Apply() end
+    if self.MapEscape then self.MapEscape:Sync() end
     return true
 end
 
@@ -151,6 +154,7 @@ function Addon:SetEnabled(enabled)
     if not self.db then self:InitializeConfig() end
     self.db.enabled = not not enabled
     if self.db.enabled then self:Apply() else self:Reset() end
+    if self.MapEscape then self.MapEscape:Sync() end
 end
 
 function Addon:SetProfileValue(key, value)

@@ -81,7 +81,7 @@ function Panels:Remember(frame)
     self.originalScales[frame] = frame.GetScale and frame:GetScale() or 1
 end
 
-function Panels:Place(frame, layout)
+function Panels:Place(frame, layout, preferred)
     if not frame or not frame.IsShown or not frame:IsShown() then return false end
     if InCombatLockdown and InCombatLockdown() then
         Addon:RunWhenSafe(function() Panels:Place(frame, layout) end, "panel:" .. tostring(frame))
@@ -97,17 +97,56 @@ function Panels:Place(frame, layout)
     local widthFit = frameWidth > 0 and layout.workspace.width / frameWidth or requestedScale
     local heightFit = frameHeight > 0 and layout.canvasHeight / frameHeight or requestedScale
     local scale = math.min(requestedScale, widthFit, heightFit)
+    if preferred and finiteNumber(preferred.scale) and preferred.scale > 0 then
+        scale = math.min(scale, preferred.scale)
+    end
     if not finiteNumber(scale) or scale <= 0 then
         Addon:ReportError("Panel has no valid fit scale for " .. frameName(frame), scale)
         return false
     end
     local savedPosition = self:GetSavedPosition(frame)
-    local centerX = savedPosition and savedPosition.x * layout.canvasWidth or layout.workspace.centerX
-    local centerY = savedPosition and savedPosition.y * layout.canvasHeight or layout.workspace.centerY
+    local centerX = savedPosition and savedPosition.x * layout.canvasWidth
+        or (preferred and preferred.x) or layout.workspace.centerX
+    local centerY = savedPosition and savedPosition.y * layout.canvasHeight
+        or (preferred and preferred.y) or layout.workspace.centerY
 
-    frame:ClearAllPoints()
-    frame:SetScale(scale)
-    frame:SetPoint("CENTER", UIParent, "CENTER", centerX, centerY)
+    -- Clamp persisted drag coordinates to the currently available Offhand workspace,
+    -- so a removed/rearranged monitor cannot strand a window outside the canvas.
+    local halfWidth = frameWidth * scale / 2
+    local halfHeight = frameHeight * scale / 2
+    local workspaceLeft = layout.workspace.left
+    if not finiteNumber(workspaceLeft) then
+        workspaceLeft = layout.canvasWidth / 2 + layout.workspace.centerX - layout.workspace.width / 2
+    end
+    local workspaceRight = layout.workspace.right or (workspaceLeft + layout.workspace.width)
+    local minX = workspaceLeft - layout.canvasWidth / 2 + halfWidth
+    local maxX = workspaceRight - layout.canvasWidth / 2 - halfWidth
+    local minY = -layout.canvasHeight / 2 + halfHeight
+    local maxY = layout.canvasHeight / 2 - halfHeight
+    if minX > maxX then centerX = layout.workspace.centerX
+    else centerX = math.max(minX, math.min(maxX, centerX)) end
+    if minY > maxY then centerY = 0
+    else centerY = math.max(minY, math.min(maxY, centerY)) end
+
+    local beforePoints = capture(frame)
+    local beforeScale = frame.GetScale and frame:GetScale() or 1
+    local ok, err = pcall(function()
+        frame:ClearAllPoints()
+        frame:SetScale(scale)
+        frame:SetPoint("CENTER", UIParent, "CENTER", centerX, centerY)
+    end)
+    if not ok then
+        local restored, restoreError = pcall(function()
+            frame:ClearAllPoints()
+            for _, point in ipairs(beforePoints) do
+                frame:SetPoint(point[1], point[2], point[3], point[4], point[5])
+            end
+            frame:SetScale(beforeScale)
+        end)
+        Addon:ReportError("Panel placement failed for " .. frameName(frame),
+            tostring(err) .. (restored and "; rolled back" or "; rollback failed: " .. tostring(restoreError)))
+        return false
+    end
     return true
 end
 
@@ -147,6 +186,24 @@ function Panels:RouteFrame(frame, layout)
     return result ~= false
 end
 
+function Panels:ReconcileBags(layout)
+    for index = 1, 10 do
+        local bag = _G["ContainerFrame" .. index]
+        if bag and self.assignments[bag] then
+            if bag.IsShown and bag:IsShown() then
+                self:RouteFrame(bag, layout)
+            else
+                self:Restore(bag)
+            end
+        end
+    end
+end
+
+function Panels:IsEditModeOpen()
+    local manager = _G.EditModeManagerFrame
+    return manager and manager.IsShown and manager:IsShown() or false
+end
+
 function Panels:ReconcileFrame(frame)
     if not frame then return false end
     return Addon:RunWhenSafe(function()
@@ -156,9 +213,21 @@ function Panels:ReconcileFrame(frame)
                 Addon:ReportError("Panel geometry unavailable for " .. frameName(frame), err)
                 return
             end
-            self:RouteFrame(frame, layout)
+            if self:IsEditModeOpen() then return end
+            local definition = self.assignments[frame]
+            if definition and definition.controller == "bags" and frameName(frame):match("^ContainerFrame%d+$") then
+                self:ReconcileBags(layout)
+            else
+                self:RouteFrame(frame, layout)
+            end
         else
             self:Restore(frame)
+            local definition = self.assignments[frame]
+            if Addon.db and Addon.db.enabled and definition and definition.controller == "bags"
+                and frameName(frame):match("^ContainerFrame%d+$") then
+                local layout = Addon.Geometry:Calculate(Addon:GetProfile())
+                if layout then self:ReconcileBags(layout) end
+            end
         end
     end, "panel-state:" .. tostring(frame))
 end
@@ -179,8 +248,23 @@ function Panels:Hook(frame)
     return true
 end
 
+function Panels:InstallEditModeHook(frame)
+    if not frame or not frame.HookScript or self.editModeFrame == frame then return end
+    self.editModeFrame = frame
+    frame:HookScript("OnShow", function()
+        Addon:Print("Edit Mode is active: panel routing is paused. Do not save the Blizzard HUD layout while the window spans multiple displays.")
+    end)
+    frame:HookScript("OnHide", function()
+        if Addon.db and Addon.db.enabled then Addon:ScheduleRecovery("EDIT_MODE_EXIT") end
+    end)
+end
+
 function Panels:DiscoverFrame(frame, routeExisting)
     if not frame or not frame.HookScript or not frame.IsShown then return false end
+    if frame.GetName and frame:GetName() == "EditModeManagerFrame" then
+        self:InstallEditModeHook(frame)
+        return false
+    end
     local definition = Addon.PanelRegistry:Classify(frame)
     if not definition then return false end
     if definition.route == false then
@@ -189,6 +273,7 @@ function Panels:DiscoverFrame(frame, routeExisting)
     end
     self.assignments[frame] = definition
     self:Hook(frame)
+    if definition.controller == "world-map" and Addon.MapEscape then Addon.MapEscape:Sync() end
     if routeExisting ~= false and Addon.db and Addon.db.enabled and frame:IsShown() then
         self:RouteIfEnabled(frame)
     end
@@ -226,6 +311,7 @@ function Panels:InstallDiscoveryHooks()
 end
 
 function Panels:Initialize()
+    self:InstallEditModeHook(_G.EditModeManagerFrame)
     for _, globalName in ipairs(Addon.PanelRegistry:GetKnownNames()) do
         self:DiscoverFrame(_G[globalName])
     end
@@ -234,6 +320,15 @@ end
 
 function Panels:Apply(layout)
     if not layout then return end
+    self:InstallEditModeHook(_G.EditModeManagerFrame)
+    if self:IsEditModeOpen() then
+        if not self.editModeWarningShown then
+            Addon:Print("Edit Mode open: supported panels will not be repositioned until you close it.")
+            self.editModeWarningShown = true
+        end
+        return
+    end
+    self.editModeWarningShown = false
     self:DiscoverAndPlace()
     for frame in pairs(self.hooked) do
         if frame.IsShown and frame:IsShown() then self:RouteFrame(frame, layout) end

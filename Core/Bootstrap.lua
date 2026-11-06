@@ -4,7 +4,7 @@ namespace = namespace or {}
 _G.ForeverMultiMonitor = namespace
 
 namespace.name = addonName
-namespace.version = "0.3.7"
+namespace.version = "0.4.1"
 namespace.pendingCallbacks = {}
 namespace.pendingCallbackKeys = {}
 namespace.lastError = nil

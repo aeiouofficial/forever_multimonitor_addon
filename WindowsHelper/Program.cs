@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 
 namespace ForeverMultiMonitor.WindowsHelper;
@@ -47,7 +48,7 @@ internal static class Program
         public int Height => Bottom - Top;
     }
 
-    private sealed record WindowState(int ProcessId, long Handle, long OriginalStyle, long OriginalExtendedStyle, WindowPlacement OriginalPlacement, string[] Displays, DateTimeOffset SavedAt, string[]? DisplayIds = null);
+    private sealed record WindowState(int ProcessId, long Handle, long OriginalStyle, long OriginalExtendedStyle, WindowPlacement OriginalPlacement, string[] Displays, DateTimeOffset SavedAt, string[]? DisplayIds = null, string? AddonDirectory = null);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NativePoint { public int X, Y; }
@@ -110,10 +111,12 @@ internal static class Program
     {
         Console.WriteLine("Forever MultiMonitor Windows Helper");
         Console.WriteLine("  list");
-        Console.WriteLine("  place --monitors \\\\.\\DISPLAY1[,\\\\.\\DISPLAY2] [--process auto|Wow.exe]");
+        Console.WriteLine("  place --monitors \\\\.\\DISPLAY1[,\\\\.\\DISPLAY2] [--process auto|Wow.exe] [--pid <process-id>]");
         Console.WriteLine("  watch --monitors <device-names> [--process auto|Wow.exe] [--interval-ms 1000]");
         Console.WriteLine("  restore");
         Console.WriteLine("  self-test");
+        Console.WriteLine("  Add --addon-dir <absolute AddOns\\ForeverMultiMonitor path> to place/watch for Lua geometry handoff.");
+        Console.WriteLine("  Add --mainhand <selected display name> to choose the Mainhand display.");
         Console.WriteLine("place is one-shot. watch is opt-in and restores the WoW window on selected-display loss or Ctrl+C.");
         Console.WriteLine("No service, startup task, telemetry, network connection or Companion protocol is used.");
     }
@@ -153,15 +156,34 @@ internal static class Program
         var monitorArgument = ValueAfter(args, "--monitors");
         if (string.IsNullOrWhiteSpace(monitorArgument)) return Fail("Missing --monitors. Run `list` first.");
         var processName = ValueAfter(args, "--process") ?? "auto";
+        var pidArgument = ValueAfter(args, "--pid");
+        int? selectedPid = null;
+        if (args.Any(arg => arg.Equals("--pid", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!int.TryParse(pidArgument, out var parsedPid) || parsedPid <= 0)
+                return Fail("--pid must be a positive integer process ID.");
+            selectedPid = parsedPid;
+        }
+        var addonDirArg = ValueAfter(args, "--addon-dir");
+        if (args.Any(arg => arg.Equals("--addon-dir", StringComparison.OrdinalIgnoreCase)) && addonDirArg is null)
+            return Fail("Missing value after --addon-dir.");
+        var addonDir = addonDirArg is null ? null : ValidateAddonDirectory(addonDirArg);
+        var mainhandArgument = ValueAfter(args, "--mainhand");
+        if (args.Any(arg => arg.Equals("--mainhand", StringComparison.OrdinalIgnoreCase)) && mainhandArgument is null)
+            return Fail("Missing value after --mainhand.");
         var available = EnumerateMonitors();
         var requested = monitorArgument.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (requested.Length == 0 || requested.Distinct(StringComparer.OrdinalIgnoreCase).Count() != requested.Length) return Fail("Monitor selection is empty or contains duplicates.");
         var selected = requested.Select(name => available.FirstOrDefault(m => string.Equals(m.Device, name, StringComparison.OrdinalIgnoreCase))).ToArray();
         if (selected.Any(m => m is null)) return Fail("A selected display is no longer connected. Run `list` again.");
         var monitors = selected.Cast<MonitorRecord>().ToArray();
-        if (monitors.Length > 8) return Fail("At most eight displays may be selected.");
+        if (monitors.Length > 8 || monitors.Length < 2) return Fail("Select between two and eight displays.");
+        var mainhand = mainhandArgument is null
+            ? monitors.FirstOrDefault(m => m.Primary) ?? monitors[0]
+            : monitors.FirstOrDefault(m => string.Equals(m.Device, mainhandArgument, StringComparison.OrdinalIgnoreCase));
+        if (mainhand is null) return Fail("--mainhand must identify a display included in --monitors.");
 
-        var window = FindGameWindow(processName);
+        var window = FindGameWindow(processName, selectedPid);
         if (window == 0) return Fail($"No visible top-level window found for process `{processName}`.");
         if (File.Exists(StatePath)) return Fail($"Restore state already exists at {StatePath}. Run `restore` before placing again.");
         var originalPlacement = new WindowPlacement { Length = Marshal.SizeOf<WindowPlacement>() };
@@ -179,7 +201,7 @@ internal static class Program
         var exStyle = GetWindowLongPtr(window, GwlExStyle).ToInt64();
         var state = new WindowState((int)pid, window.ToInt64(), style, exStyle, originalPlacement,
             monitors.Select(m => m.Device).ToArray(), DateTimeOffset.UtcNow,
-            monitors.Select(DisplayIdentity).ToArray());
+            monitors.Select(DisplayIdentity).ToArray(), addonDir);
         Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
         WriteStateAtomically(state);
 
@@ -198,6 +220,18 @@ internal static class Program
             if (RestoreState(state)) File.Delete(StatePath);
             throw new InvalidOperationException($"SetWindowPos failed with Win32 error {error}; original window state restore was attempted.");
         }
+        if (addonDir is not null)
+        {
+            try
+            {
+                WriteNativeGeometryHandoff(addonDir, monitors, mainhand, (int)pid);
+            }
+            catch
+            {
+                if (RestoreState(state)) File.Delete(StatePath);
+                throw; // Never claim successful placement when the requested handoff failed.
+            }
+        }
         Console.WriteLine($"Placed WoW window across {string.Join(", ", state.Displays)} at ({left},{top}) size {right-left}x{bottom-top}.");
         Console.WriteLine("The addon now sees the combined logical UIParent canvas. Run /fmm config and apply its Mainhand split.");
         Console.WriteLine("Run `restore` to restore the original window bounds and styles.");
@@ -210,6 +244,7 @@ internal static class Program
         var state = JsonSerializer.Deserialize<WindowState>(File.ReadAllText(StatePath)) ?? throw new InvalidDataException("Saved window state is invalid.");
         var connected = EnumerateMonitors();
         if (!RestoreStateSafely(state, connected, out var usedFallback)) return Fail("Restore failed; state file was retained for retry.");
+        if (state.AddonDirectory is not null) ClearNativeGeometryHandoff(state.AddonDirectory);
         File.Delete(StatePath);
         Console.WriteLine(usedFallback
             ? "Original styles restored; original position was off-screen, so WoW was moved onto the primary connected display."
@@ -269,12 +304,97 @@ internal static class Program
     {
         if (!RestoreStateSafely(state, connected, out var usedFallback))
             return Fail(reason + " Restore failed; state file was retained for retry.");
+        if (state.AddonDirectory is not null) ClearNativeGeometryHandoff(state.AddonDirectory);
         if (File.Exists(StatePath)) File.Delete(StatePath);
         Console.WriteLine(reason);
         Console.WriteLine(usedFallback
             ? "Original styles restored; WoW was placed on the primary connected display because its original position is no longer visible."
             : "Original window position and styles restored.");
         return 0;
+    }
+
+
+    private static string ValidateAddonDirectory(string raw)
+    {
+        if (!Path.IsPathFullyQualified(raw)) throw new ArgumentException("--addon-dir must be an absolute path.");
+        var full = Path.GetFullPath(raw);
+        if (string.Equals(Path.GetPathRoot(full), @"C:\", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Writing to drive C: is disallowed; select a non-C: addon directory.");
+        var manifest = Path.Combine(full, "ForeverMultiMonitor.toc");
+        var runtime = Path.Combine(full, "Core", "RuntimeGeometry.lua");
+        if (!File.Exists(manifest) || !File.Exists(runtime))
+            throw new DirectoryNotFoundException("--addon-dir must point to an installed ForeverMultiMonitor addon containing the TOC and Core/RuntimeGeometry.lua.");
+        return full;
+    }
+
+    private static string LuaString(string value)
+    {
+        var result = new StringBuilder("\"");
+        foreach (var c in value)
+        {
+            if (c == '\\') result.Append(@"\\");
+            else if (c == '"') result.Append("\\\"");
+            else if (char.IsControl(c)) result.Append('\\').Append(((int)c).ToString("D3", System.Globalization.CultureInfo.InvariantCulture));
+            else result.Append(c);
+        }
+        return result.Append('"').ToString();
+    }
+
+    private static string BuildNativeGeometryLua(IReadOnlyList<MonitorRecord> monitors, MonitorRecord mainhand, int processId)
+    {
+        if (monitors.Count < 2 || monitors.Count > 8 || !monitors.Contains(mainhand))
+            throw new ArgumentException("Invalid selected displays for handoff.");
+        var left = monitors.Min(m => m.Left);
+        var top = monitors.Min(m => m.Top);
+        var right = monitors.Max(m => m.Right);
+        var bottom = monitors.Max(m => m.Bottom);
+        var result = new StringBuilder("-- Data-only native monitor handoff; generated by ForeverMultiMonitor.WindowsHelper.\n");
+        result.AppendLine("ForeverMultiMonitorNativeGeometry = {");
+        result.AppendLine("  schemaVersion = 1,");
+        result.AppendLine("  source = \"ForeverMultiMonitor.WindowsHelper\",");
+        result.AppendLine($"  processId = {processId},");
+        result.AppendLine($"  generatedAtUtc = {LuaString(DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture))},");
+        result.AppendLine($"  mainhandDeviceId = {LuaString(DisplayIdentity(mainhand))},");
+        result.AppendLine($"  bounds = {{ left = {left}, top = {top}, right = {right}, bottom = {bottom} }},");
+        result.AppendLine("  displays = {");
+        foreach (var monitor in monitors)
+        {
+            result.AppendLine("    {");
+            result.AppendLine($"      device = {LuaString(monitor.Device)}, deviceId = {LuaString(DisplayIdentity(monitor))},");
+            result.AppendLine($"      name = {LuaString(monitor.Name)}, primary = {(monitor.Primary ? "true" : "false")},");
+            result.AppendLine($"      left = {monitor.Left}, top = {monitor.Top}, right = {monitor.Right}, bottom = {monitor.Bottom},");
+            result.AppendLine($"      dpiX = {monitor.DpiX}, dpiY = {monitor.DpiY},");
+            result.AppendLine("    },");
+        }
+        result.AppendLine("  },");
+        return result.AppendLine("}").ToString();
+    }
+
+    private static void WriteNativeGeometryHandoff(string addonDir, IReadOnlyList<MonitorRecord> monitors, MonitorRecord mainhand, int processId)
+    {
+        WriteHandoffAtomically(addonDir, BuildNativeGeometryLua(monitors, mainhand, processId));
+        Console.WriteLine("Native monitor handoff written. Use /reload in WoW, then /fmm native apply.");
+    }
+
+    private static void ClearNativeGeometryHandoff(string addonDir)
+    {
+        WriteHandoffAtomically(addonDir, "-- Native monitor span inactive. Use manual geometry.\nForeverMultiMonitorNativeGeometry = nil\n");
+    }
+
+    private static void WriteHandoffAtomically(string addonDir, string contents)
+    {
+        var validated = ValidateAddonDirectory(addonDir);
+        var target = Path.Combine(validated, "Core", "RuntimeGeometry.lua");
+        var temporary = target + ".new";
+        try
+        {
+            File.WriteAllText(temporary, contents, new UTF8Encoding(false));
+            File.Move(temporary, target, true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 
     private static string DisplayIdentity(MonitorRecord monitor) =>
@@ -330,8 +450,8 @@ internal static class Program
         var placement = BuildSafeRestorePlacement(state.OriginalPlacement, connected, out usedFallback);
         if (!TrySetWindowLong(hwnd, GwlStyle, new nint(state.OriginalStyle))) return false;
         if (!TrySetWindowLong(hwnd, GwlExStyle, new nint(state.OriginalExtendedStyle))) return false;
-        var bounds = placement.NormalPosition;
-        if (!SetWindowPos(hwnd, 0, bounds.Left, bounds.Top, bounds.Right - bounds.Left, bounds.Bottom - bounds.Top, SwpNoZOrder | SwpNoActivate | SwpFrameChanged)) return false;
+        // WINDOWPLACEMENT uses workspace coordinates; SetWindowPos expects screen coordinates.
+        // Only SetWindowPlacement may consume NormalPosition to avoid taskbar-offset drift.
         placement.Length = Marshal.SizeOf<WindowPlacement>();
         return SetWindowPlacement(hwnd, ref placement);
     }
@@ -362,7 +482,23 @@ internal static class Program
         if (exactFallback || exact.NormalPosition.Left != visible.NormalPosition.Left || exact.NormalPosition.Top != visible.NormalPosition.Top)
             return Fail("Hotplug self-test failed: visible original position was not preserved.");
 
+        var roundTrip = JsonSerializer.Deserialize<WindowState>(JsonSerializer.Serialize(state, JsonOptions), JsonOptions);
+        if (roundTrip is null || roundTrip.ProcessId != state.ProcessId ||
+            roundTrip.DisplayIds is not { Length: 2 } || roundTrip.DisplayIds[1] != "monitor-secondary")
+            return Fail("Restore-state JSON round-trip failed; safe rollback cannot be guaranteed.");
+
+        var handoff = BuildNativeGeometryLua(new[] { primary, secondary }, secondary, 4242);
+        if (!handoff.Contains("schemaVersion = 1") || !handoff.Contains("processId = 4242") ||
+            !handoff.Contains("mainhandDeviceId = \"monitor-secondary\"") ||
+            !handoff.Contains("bounds = { left = 0, top = 0, right = 3840, bottom = 1080 }") ||
+            !handoff.Contains("dpiX = 96, dpiY = 96"))
+            return Fail("Native geometry handoff self-test failed: invalid output schema or bounds.");
+        var escaped = LuaString("monitor\\device\"quote\"\n");
+        if (!escaped.Contains("\\\\") || !escaped.Contains("\\\"") || !escaped.Contains("\\010"))
+            return Fail("Native geometry handoff self-test failed: Lua string escaping is unsafe.");
+
         Console.WriteLine("PASS hotplug self-test: stable display identity, disconnect detection, off-screen/partial-visibility fallback and exact visible restore.");
+        Console.WriteLine("PASS native handoff self-test: display union, selected Mainhand, schema and escaped strings.");
         return 0;
     }
 
@@ -374,7 +510,7 @@ internal static class Program
         if (pid != (uint)state.ProcessId) return false;
         if (!TrySetWindowLong(hwnd, GwlStyle, new nint(state.OriginalStyle))) return false;
         if (!TrySetWindowLong(hwnd, GwlExStyle, new nint(state.OriginalExtendedStyle))) return false;
-        if (!SetWindowPos(hwnd, 0, state.OriginalPlacement.NormalPosition.Left, state.OriginalPlacement.NormalPosition.Top, state.OriginalPlacement.NormalPosition.Right - state.OriginalPlacement.NormalPosition.Left, state.OriginalPlacement.NormalPosition.Bottom - state.OriginalPlacement.NormalPosition.Top, SwpNoZOrder | SwpNoActivate | SwpFrameChanged)) return false;
+        // Do not pass WINDOWPLACEMENT workspace coordinates to SetWindowPos.
         var placement = state.OriginalPlacement;
         placement.Length = Marshal.SizeOf<WindowPlacement>();
         return SetWindowPlacement(hwnd, ref placement);
@@ -389,13 +525,21 @@ internal static class Program
 
     private static void WriteStateAtomically(WindowState state)
     {
-        var temporary = StatePath + ".new";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(state, JsonOptions));
-        if (File.Exists(StatePath)) File.Delete(StatePath);
-        File.Move(temporary, StatePath);
+        // CreateNew semantics on the final move prevent concurrent place commands
+        // from replacing an earlier session's only recoverable original state.
+        var temporary = StatePath + "." + Guid.NewGuid().ToString("N") + ".new";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(state, JsonOptions));
+            File.Move(temporary, StatePath); // no overwrite: fails if another place won
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 
-    private static nint FindGameWindow(string processName)
+    private static nint FindGameWindow(string processName, int? selectedPid)
     {
         var processNames = processName.Equals("auto", StringComparison.OrdinalIgnoreCase)
             ? new[] { "Wow", "Wow-64", "WowClassic", "World of Warcraft" }
@@ -406,19 +550,22 @@ internal static class Program
             foreach (var process in Process.GetProcessesByName(name)) ids.Add((uint)process.Id);
         }
         if (ids.Count == 0) return 0;
-        nint found = 0;
+        var candidates = new List<(nint Handle, uint ProcessId)>();
         EnumWindows((hwnd, _) =>
         {
             if (!IsWindowVisible(hwnd)) return true;
             GetWindowThreadProcessId(hwnd, out var pid);
             if (!ids.Contains(pid)) return true;
+            if (selectedPid.HasValue && pid != (uint)selectedPid.Value) return true;
             var title = new System.Text.StringBuilder(256);
             _ = GetWindowText(hwnd, title, title.Capacity);
             if (title.Length == 0) return true;
-            found = hwnd;
-            return false;
+            candidates.Add((hwnd, pid));
+            return true;
         }, 0);
-        return found;
+        if (candidates.Count > 1)
+            throw new InvalidOperationException("Multiple WoW windows found; specify --pid.");
+        return candidates.Count == 1 ? candidates[0].Handle : 0;
     }
 
     private static string? ValueAfter(string[] args, string key)

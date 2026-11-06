@@ -5,13 +5,13 @@ Target: the public user-facing Offhand workflow, excluding the Companion process
 | Capability | Required layer | Current implementation | Evidence / release state |
 |---|---|---|---|
 | Mainhand/Offhand viewport split | Lua addon | Left/right logical-canvas split, width and seam configuration | Lua 5.1 geometry simulation; Forever live test open |
-| WorldFrame capture/apply/restore | Lua addon | Anchor snapshot, viewport placement and restore | Lua 5.1 simulation; Forever live test open |
-| Route map, character, spellbook, quest, professions, auction, social, collections, encounters, achievements and bags | Lua addon | Explicit registry; generic placement primitive shared by registered family controllers | Lua 5.1 simulation; family-specific adapters/live tests open |
+| WorldFrame capture/apply/restore | Lua addon | Anchor snapshot, transactional placement and rollback after partial anchor failure, original user-placed flag restoration | Lua 5.1 injection PASS; Forever in-client test open |
+| Route map, character, spellbook, quest, professions, auction, social, collections, encounters, achievements and bags | Lua addon | Registry and generic placement; specific nonoverlapping default-bag grid. Other family adapters incomplete | Lua 5.1 simulation; live tests open |
 | Dynamic panel discovery | Lua addon | `ShowUIPanel`, `ToggleFrame`, named `CreateFrame`, bag toggles and addon-load scans | Lua 5.1 mock; real client hook behavior open |
 | Panel ownership / protected HUD exclusions | Lua addon | One registered owner per known family; protected HUD and replacement-bag prefixes excluded | Lua 5.1 mock; compatibility with actual UI replacements open |
 | Panel anchor/scale restore | Lua addon | Original in-session anchors and scale captured once and restored | Lua 5.1 mock; live test open |
 | Panel drag position persistence | Lua addon | Normalized per-character save/reapply when native `OnDragStop` fires | Lua 5.1 mock; supported frame drag behavior open |
-| Panel lifecycle, Escape and focus | Lua addon | `OnShow` routes; `OnHide` restores original anchors/scale; keyed combat-safe reconciliation converges on latest visibility state. Focus ownership and Escape integration remain incomplete | Lua 5.1 runtime simulation; live lifecycle/focus/Escape tests open |
+| Panel lifecycle, Escape and focus | Lua addon | Combat-safe show/hide, default-map Escape persistence, reversible ESC list membership; UI/gamepad focus remains incomplete | Lua 5.1 runtime simulation; live tests open |
 | Combat-safe operations | Lua addon | Keyed queue converges on current SavedVariables state after combat | Lua 5.1 runtime simulation; live combat test open |
 | Recovery after login/world/UI scale/display-size changes | Lua addon | Debounced recovery and generation checks | Lua 5.1 runtime simulation; live client test open |
 | Raw mouse input | Lua addon | Saves previous `rawMouseEnable`, enables while active and restores on disable/logout | Lua 5.1 simulation; real Forever CVar behavior open |
@@ -20,16 +20,16 @@ Target: the public user-facing Offhand workflow, excluding the Companion process
 | Named profiles / profile switching | Lua addon | Legacy settings migrate to `Default`; named profiles can be created, saved, loaded and deleted with active/default protection | Lua 5.1 runtime simulation; live UI/reload test open |
 | Dashboard theme presets / opacity | Lua addon | Midnight, Indigo and Classic palettes; per-profile background opacity from 50?100%; dashboard and wizard only | Lua 5.1 runtime simulation; in-client visual test open |
 | Custom backgrounds / user media import | Lua addon + packaging/helper | No code-free media-pack importer, path validation or reload handoff | Open |
-| Edit Mode / protected HUD integration | Lua addon | Not implemented; Forever API support not established | Open; no secure-frame bypass planned |
+| Edit Mode / protected HUD integration | Lua addon | Explicitly pauses panel routing while Edit Mode is shown and schedules recovery on exit; no protected HUD layout creation | Simulated, live client open |
 | Gamepad/Mainhand behavior, chat bubbles, popup/menu bounds, transient HUD | Lua addon | Not implemented as a complete compatibility layer | Open |
 | Ultrawide presets / aspect and bezel calibration | Lua addon | Basic width and seam controls only; no 21:9/32:9 presets | Partial |
 | Physical display enumeration | Windows helper | Device names/IDs, physical bounds, primary flag and effective DPI | Built and executed on development PC; target system matrix open |
 | Native WoW window discovery | Windows helper | Visible top-level window lookup by known process names or explicit process | Compiled; live WoW process test open |
-| Native HWND resize / borderless placement | Windows helper | One-shot rectangular union of selected display bounds and border-style removal | Compiled; not executed against live WoW |
-| Original native window restoration | Windows helper | Saves style/ex-style and full `WINDOWPLACEMENT`; explicit `restore` command | Compiled; round-trip live window test open |
+| Native HWND resize / borderless placement | Windows helper | One-shot rectangular union of selected display bounds and border-style removal | PASS live Wow.exe HWND place at 4480x1080 on 2026-11-06; mixed-DPI UI alignment not tested |
+| Original native window restoration | Windows helper | Saves style/ex-style and full `WINDOWPLACEMENT`; explicit `restore` command | PASS live restore; original position insufficiently visible, safety fallback selected primary monitor |
 | Mixed DPI / asymmetric / stacked monitor geometry | Windows helper | Reports DPI and monitor bounds; union rectangle used for placement | Enumeration exercised; real WoW mixed-DPI placement unverified |
 | Display disconnect/reconnect / hotplug rollback | Windows helper | Opt-in polling `watch` tracks stable selected display IDs; on loss it restores the original visible position or falls back to the primary connected display. Reconnect/reapply is not automatic | Pure helper self-test; physical disconnect/reconnect test open |
-| Direct helper-to-addon geometry handoff | Integration | Not implemented; addon reads the resulting combined `UIParent` canvas and retains manual geometry controls | Open |
+| Direct helper-to-addon geometry handoff | Integration | Versioned, atomic, data-only `RuntimeGeometry.lua` generated via `--addon-dir` and read after `/reload`; manual fallback on bad/unsupported geometry | Simulated and helper self-tested; live test open |
 | Resident monitoring / auto-start / Companion process | Excluded | No service, tray resident, auto-start, Companion or Companion protocol | Intentional scope boundary |
 | Full Offhand feature parity | Both | Not achieved | Release gate open |
 

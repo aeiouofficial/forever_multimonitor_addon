@@ -1,3 +1,40 @@
+## [0.4.1] - 2026-11-06
+
+### Fixed after critical audit
+- Distinguish a successful protected pcall from an actual true viewport application; failed viewport apply now prevents panel routing and raw-mouse activation.
+- Transactional WorldFrame cropping: if the second anchor or another layout operation raises, attempt to restore the exact prior anchors and user-placement flag, and preserve the prior applied state when rollback succeeds.
+- Transactional panel placement: capture immediate anchors/scale, roll back a failed SetPoint or SetScale operation and report the error.
+- Restore all original WorldMapFrame UISpecialFrames memberships, including repeated entries, without introducing duplicates on repeated disable.
+- Added targeted Lua 5.1 fault-injection scenarios for second-anchor failure, panel placement failure and false viewport results.
+- Made native helper restore-state creation collision-resistant: a unique temporary file is moved into place without overwrite, so concurrent `place` launches cannot replace the first recovery state.
+
+### Verification / release gate
+- Source/manifest checks, Lua 5.1 runtime scenarios and helper Release build PASS; helper self-test PASS.
+- **Live native HWND place/restore PASS on 2026-11-06**: Wow.exe window placed across 2560x1080 + 1920x1080 = 4480x1080, restored via safe primary-display fallback because original position was not sufficiently visible.
+- Still BLOCKED for full shipment: WoW addon cold-load/reload, taint/combat, UI family behavior, physical hotplug and mixed-DPI logical viewport placement have not been measured in client. No full Offhand parity claim.
+- Full issue/impact/evidence record: [docs/AUDIT_2026-11-06.md](docs/AUDIT_2026-11-06.md).
+
+## [0.4.0] - 2026-11-06
+
+### Implemented
+- Validated data-only Windows-helper-to-Lua monitor geometry, atomic file handoff via --addon-dir, optional --mainhand, two aligned horizontal displays auto-calibration, and manual fallback for unsupported topologies.
+- Profile-scoped reversible World Map Escape-list handling, with slash command and GUI toggle.
+- WorldFrame user-placement flag preservation and original-anchor recovery, including logout recovery attempt.
+- Bounded default-bag grid, offscreen drag-position clamping, Edit Mode panel-routing pause and exit-triggered recovery.
+- In-game native calibration button and status commands; addon version bumped to 0.4.0.
+- Native helper expanded with pure handoff schema/escaping self-test; preserved existing hotplug rollback and restore safeguards.
+
+### Local verification
+- 54 source regression checks PASS; 16 Lua modules syntax-parsed with Lua 5.1-compatible parser.
+- Lua 5.1 mocked runtime PASS for map Escape, geometry validation/calibration, bags, Edit Mode and viewport state restoration.
+- .NET 10 Windows helper Release build 0 warnings, 0 errors; helper self-test PASS; both Windows displays enumerated.
+- These are **not** a substitute for testing the real Forever client. Live WoW HWND placement and in-client layout/secure-frame tests remain open.
+
+### Release gates
+- Native window placement/restore and mixed-DPI coordinate alignment against the actual running WoW client remain unverified.
+- Reference Offhand parity is not achieved: keyboard/gamepad focus, protected HUD layout creation, advanced panel family adaptations, chat/tooltips/bubbles, custom background media import, full GUI display selection and localization remain incomplete.
+- No persistent Companion service/protocol was added. No files were deliberately written to C:; development work and temp/cache roots are under the F: workspace.
+
 ## [0.3.7] - 2026-11-06
 
 ### Added

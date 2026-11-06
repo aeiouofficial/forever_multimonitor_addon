@@ -26,6 +26,80 @@ lua.execute("assert(ForeverMultiMonitor.db.activeProfile == 'Default', 'legacy s
 print("PASS Lua 5.1: named profile migration, create, save, switch and safe delete")
 lua.execute("assert(ForeverMultiMonitor:GetProfile().themePreset == 'midnight', 'theme preset default missing'); assert(ForeverMultiMonitor:GetProfile().backgroundOpacity == 0.92, 'background opacity default missing'); ForeverMultiMonitor:SetProfileValue('themePreset', 'invalid-theme'); assert(ForeverMultiMonitor:GetProfile().themePreset == 'midnight', 'invalid theme was not rejected'); ForeverMultiMonitor:SetProfileValue('themePreset', 'indigo'); assert(ForeverMultiMonitor:GetProfile().themePreset == 'indigo', 'valid theme preset was not retained'); ForeverMultiMonitor:SetProfileValue('backgroundOpacity', 1.5); assert(ForeverMultiMonitor:GetProfile().backgroundOpacity == 1, 'opacity upper bound was not clamped'); ForeverMultiMonitor:SetProfileValue('backgroundOpacity', 0.2); assert(ForeverMultiMonitor:GetProfile().backgroundOpacity == 0.5, 'opacity lower bound was not clamped')")
 print("PASS Lua 5.1: theme preset validation and opacity bounds")
+lua.execute((ROOT / "Core" / "NativeGeometry.lua").read_text(encoding="utf-8-sig"), "ForeverMultiMonitor", addon)
+lua.execute("""
+ForeverMultiMonitorNativeGeometry = {
+  schemaVersion = 1, source = "ForeverMultiMonitor.WindowsHelper", processId = 1234,
+  generatedAtUtc = "2026-11-06T00:00:00Z",
+  bounds = { left = -1920, top = 0, right = 1920, bottom = 1080 },
+  displays = {
+    { device = "DISPLAY1", deviceId = "monitor-a", name = "Left", primary = false, left = -1920, top = 0, right = 0, bottom = 1080, dpiX = 96, dpiY = 96 },
+    { device = "DISPLAY2", deviceId = "monitor-b", name = "Primary", primary = true, left = 0, top = 0, right = 1920, bottom = 1080, dpiX = 120, dpiY = 120 },
+  },
+}
+local nativeOK, nativeError = ForeverMultiMonitor:LoadNativeGeometry()
+assert(nativeOK and ForeverMultiMonitor.nativeGeometry.displayCount == 2, "valid native geometry handoff was rejected: " .. tostring(nativeError))
+assert(ForeverMultiMonitor.nativeGeometry.bounds.left == -1920, "negative physical coordinates were not preserved")
+assert(ForeverMultiMonitor.nativeGeometry.displays[2].dpiX == 120, "per-display DPI was not preserved")
+ForeverMultiMonitorNativeGeometry.schemaVersion = 99
+local futureOK = ForeverMultiMonitor:LoadNativeGeometry()
+assert(not futureOK and ForeverMultiMonitor.nativeGeometry == nil, "unknown native geometry schema was accepted")
+ForeverMultiMonitorNativeGeometry.schemaVersion = 1
+ForeverMultiMonitorNativeGeometry.displays[2].deviceId = "monitor-a"
+local duplicateOK = ForeverMultiMonitor:LoadNativeGeometry()
+assert(not duplicateOK and ForeverMultiMonitor.nativeGeometry == nil, "duplicate native display identity was accepted")
+ForeverMultiMonitorNativeGeometry = nil
+local manualOK = ForeverMultiMonitor:LoadNativeGeometry()
+assert(not manualOK and ForeverMultiMonitor.nativeGeometryStatus == "manual", "missing handoff did not select manual fallback")
+""")
+print("PASS Lua 5.1: native geometry handoff schema, negative coordinates, mixed DPI and safe fallback")
+lua.execute((ROOT / "Core" / "MapEscape.lua").read_text(encoding="utf-8-sig"), "ForeverMultiMonitor", addon)
+lua.execute("""
+ForeverMultiMonitor.db.enabled = true
+UISpecialFrames = { "GameMenuFrame", "WorldMapFrame", "OtherDialog", "WorldMapFrame" }
+ForeverMultiMonitor.MapEscape:Sync()
+assert(#UISpecialFrames == 2 and UISpecialFrames[1] == "GameMenuFrame", "map ESC removal damaged other entries")
+ForeverMultiMonitor.MapEscape:Sync()
+assert(#UISpecialFrames == 2, "map ESC removal is not idempotent")
+ForeverMultiMonitor:SetProfileValue("mapStaysOpenOnEscape", false)
+ForeverMultiMonitor.MapEscape:Sync()
+assert(#UISpecialFrames == 4 and UISpecialFrames[2] == "WorldMapFrame" and UISpecialFrames[4] == "WorldMapFrame", "map ESC original duplicate membership was not restored")
+ForeverMultiMonitor:SetProfileValue("mapStaysOpenOnEscape", true)
+ForeverMultiMonitor.MapEscape:Sync()
+assert(#UISpecialFrames == 2, "map ESC toggle did not reapply")
+ForeverMultiMonitor.db.enabled = false
+ForeverMultiMonitor.MapEscape:Sync()
+assert(#UISpecialFrames == 4 and UISpecialFrames[2] == "WorldMapFrame" and UISpecialFrames[4] == "WorldMapFrame", "disabling layout did not restore map ESC behavior")
+ForeverMultiMonitor.MapEscape:Sync()
+assert(#UISpecialFrames == 4, "map ESC restore duplicated entries")
+""")
+print("PASS Lua 5.1: map Escape behavior, profile toggle, duplicate suppression and exact restoration")
+
+lua.execute("""
+ForeverMultiMonitorNativeGeometry = {
+ schemaVersion = 1, source = "ForeverMultiMonitor.WindowsHelper", processId = 1234,
+ generatedAtUtc = "2026-11-06T00:00:00Z", mainhandDeviceId = "monitor-b",
+ bounds = { left = -1920, top = 0, right = 2560, bottom = 1080 },
+ displays = {
+  { device = "Left", deviceId = "monitor-a", name = "Left", primary = false,
+    left = -1920, top = 0, right = 0, bottom = 1080, dpiX = 96, dpiY = 96 },
+  { device = "Right", deviceId = "monitor-b", name = "Right", primary = true,
+    left = 0, top = 0, right = 2560, bottom = 1080, dpiX = 120, dpiY = 120 },
+ }
+}
+assert(ForeverMultiMonitor:LoadNativeGeometry(), "valid calibration payload rejected")
+local ok, message = ForeverMultiMonitor:UseNativeGeometry()
+assert(ok and ForeverMultiMonitor:GetProfile().mainhandSide == "right", "calibration failed: " .. tostring(message))
+assert(math.abs(ForeverMultiMonitor:GetProfile().mainhandWidthPercent - 57.14285714) < 0.01, "wrong mainhand ratio")
+ForeverMultiMonitorNativeGeometry.displays[2].top = 100
+ForeverMultiMonitorNativeGeometry.bounds.top = 0
+assert(ForeverMultiMonitor:LoadNativeGeometry(), "valid staggered display union rejected")
+local staggeredOK = ForeverMultiMonitor:UseNativeGeometry()
+assert(not staggeredOK, "staggered displays must require manual calibration")
+ForeverMultiMonitorNativeGeometry = nil
+ForeverMultiMonitor:LoadNativeGeometry()
+""")
+print("PASS Lua 5.1: native mainhand calibration and asymmetric-topology fallback")
 lua.execute("assert(ForeverMultiMonitor.charDB.panelPositionSchema == 1, 'panel position schema was not initialized'); assert(ForeverMultiMonitor.charDB.panelPositions.Legacy.x == 0.1, 'existing position data was discarded')")
 lua.execute("ForeverMultiMonitorCharDB = { panelPositionSchema = 2, panelPositions = { Keep = { schema = 2 } } }; ForeverMultiMonitor:InitializeConfig(); assert(ForeverMultiMonitor.charDB.panelPositionSchema == 2 and ForeverMultiMonitor.charDB.panelPositions.Keep ~= nil, 'future schema data was mutated')")
 print("PASS Lua 5.1: character position schema migration and future-schema read-only handling")
@@ -138,7 +212,7 @@ assert(saved and math.abs(saved.x - 0.1) < 0.000001 and math.abs(saved.y - (1 / 
 local restoredPosition = makeFrame({}, 1)
 restoredPosition.name = "WorldMapFrame"
 ShowUIPanel(restoredPosition)
-assert(math.abs(restoredPosition.centerX - 1800) < 0.001 and math.abs(restoredPosition.centerY - 600) < 0.001, "saved panel position was not reapplied")
+assert(math.abs(restoredPosition.centerX - 2030) < 0.001 and math.abs(restoredPosition.centerY - 600) < 0.001, "saved panel position was not clamped safely to Offhand bounds")
 print('PASS Lua 5.1: per-character drag position save and reapply')
 inCombat = true
 first.centerX = 2100
@@ -200,21 +274,160 @@ assert(#lifecycle.points == 2 and lifecycle.scale == 1.1, "combat hide did not c
 """)
 print("PASS Lua 5.1: panel hide restores original geometry and reopen routes it again")
 
+lua.execute("""
+local sourceGeometry = ForeverMultiMonitor.Geometry
+local safeLayout = {
+    canvasWidth = 3000, canvasHeight = 900,
+    workspace = { left = 1500, right = 3000, width = 1500, centerX = 750, centerY = 0 }
+}
+ForeverMultiMonitor.Geometry = { Calculate = function() return safeLayout end }
+local bag1 = makeFrame({{"TOPLEFT", UIParent, "TOPLEFT", 15, -15}}, 1)
+local bag2 = makeFrame({{"TOPLEFT", UIParent, "TOPLEFT", 25, -25}}, 1)
+bag1.name = "ContainerFrame1"
+bag2.name = "ContainerFrame2"
+_G.ContainerFrame1, _G.ContainerFrame2 = bag1, bag2
+ShowUIPanel(bag1)
+ShowUIPanel(bag2)
+assert(bag1.centerX < bag2.centerX, "default bag windows overlap instead of reflowing in the workspace")
+assert(bag1.centerX > 1500 and bag2.centerX < 3000, "default bags left the Offhand canvas")
+bag2.shown = false
+bag2.hooks.OnHide[1](bag2)
+assert(#bag2.points == 1 and bag2.scale == 1, "hidden bag did not restore its anchor and scale")
+bag2.shown = true
+bag2.hooks.OnShow[1](bag2)
+assert(bag1.centerX < bag2.centerX, "bag reopening failed to reflow")
+local combined = makeFrame({}, 1)
+combined.name = "ContainerFrameCombinedBags"
+_G.ContainerFrameCombinedBags = combined
+combined.shown = true
+ForeverMultiMonitor.Panels:ReconcileBags(safeLayout)
+assert(#bag1.points == 1 and bag1.scale == 1, "combined bag mode did not restore separate bag anchors")
+combined.shown = false
+ForeverMultiMonitor.Panels:ReconcileBags(safeLayout)
+assert(bag1.centerX < bag2.centerX, "closing combined bags did not reflow default bags")
+bag1.shown = false
+bag2.shown = false
+ForeverMultiMonitor.Panels:ReconcileFrame(bag1)
+ForeverMultiMonitor.Panels:ReconcileFrame(bag2)
+ForeverMultiMonitor.Geometry = sourceGeometry
+_G.ContainerFrame1, _G.ContainerFrame2, _G.ContainerFrameCombinedBags = nil, nil, nil
+""")
+print("PASS Lua 5.1: individual/combined bag grid routing, reflow and restoration")
+
+lua.execute("""
+local manager = CreateFrame("Frame", "EditModeManagerFrame")
+assert(manager.hooks.OnShow and manager.hooks.OnHide, "late Edit Mode discovery did not install lifecycle hooks")
+local editPanel = makeFrame({{"TOPLEFT", UIParent, "TOPLEFT", 12, -12}}, 1)
+editPanel.name = "SpellBookFrame"
+ForeverMultiMonitor.Panels:DiscoverFrame(editPanel, false)
+editPanel.shown = true
+manager.shown = true
+manager.hooks.OnShow[1](manager)
+ForeverMultiMonitor.Panels:Apply({
+  canvasWidth = 3000, canvasHeight = 900,
+  workspace = { left = 1500, right = 3000, width = 1500, centerX = 750, centerY = 0 }
+})
+assert(#editPanel.points == 1 and editPanel.points[1][1] == "TOPLEFT", "Edit Mode guard modified a panel")
+local calls = 0
+ForeverMultiMonitor.ScheduleRecovery = function(_, reason)
+  assert(reason == "EDIT_MODE_EXIT", "wrong Edit Mode recovery reason")
+  calls = calls + 1
+end
+manager.shown = false
+manager.hooks.OnHide[1](manager)
+assert(calls == 1, "Edit Mode exit did not schedule safe recovery")
+ForeverMultiMonitor.Panels:Apply({
+  canvasWidth = 3000, canvasHeight = 900,
+  workspace = { left = 1500, right = 3000, width = 1500, centerX = 750, centerY = 0 }
+})
+assert(editPanel.points[1][1] == "CENTER", "panel did not route after Edit Mode closed")
+ForeverMultiMonitor.Panels:Restore(editPanel)
+editPanel.shown = false
+_G.EditModeManagerFrame = nil
+""")
+print("PASS Lua 5.1: Edit Mode pause, recovery trigger, resumed routing and restoration")
+
 print("PASS Lua 5.1: late panel discovery, idempotent hooks, routing and multi-anchor/scale restore")
 print("PASS Lua 5.1: anchorless restore and ToggleFrame global-name discovery")
 
 # Exercise viewport snapshot lifecycle.
-lua.execute("WorldFrame = makeFrame({{\"TOPLEFT\", UIParent, \"TOPLEFT\", 0, 0}, {\"BOTTOMRIGHT\", UIParent, \"BOTTOMRIGHT\", 0, 0}}, 1)")
+lua.execute("WorldFrame = makeFrame({{\"TOPLEFT\", UIParent, \"TOPLEFT\", 0, 0}, {\"BOTTOMRIGHT\", UIParent, \"BOTTOMRIGHT\", 0, 0}}, 1); WorldFrame.userPlaced = true; function WorldFrame:IsUserPlaced() return self.userPlaced end; function WorldFrame:SetUserPlaced(flag) self.userPlaced = flag end")
 lua.execute((ROOT / "Core" / "Viewport.lua").read_text(encoding="utf-8-sig"), "ForeverMultiMonitor", addon)
 lua.execute("""
 local layout = { mainhand = { left = 0, right = 1500 } }
 ForeverMultiMonitor.Viewport:Apply(layout)
 assert(#WorldFrame.points == 2, "viewport apply did not set expected bounds")
+assert(WorldFrame.userPlaced == false, "cropped WorldFrame was left layout-cache persistent")
+assert(WorldFrame.points[1][2] == 0 and WorldFrame.points[2][2] == -1500, "WorldFrame uses wrong parent-relative anchor offset")
 ForeverMultiMonitor.Viewport:Restore()
 assert(#WorldFrame.points == 2, "viewport did not restore original anchors")
+assert(WorldFrame.userPlaced == true, "pre-existing WorldFrame cache flag was not restored")
 assert(ForeverMultiMonitor.Viewport.originalPoints == nil, "viewport snapshot was not invalidated")
 """)
 print("PASS Lua 5.1: viewport apply/restore and snapshot invalidation")
+lua.execute("""
+local originalSetPoint = WorldFrame.SetPoint
+local attempts = 0
+WorldFrame.SetPoint = function(self, ...)
+  attempts = attempts + 1
+  if attempts == 2 then error("injected second-anchor failure") end
+  return originalSetPoint(self, ...)
+end
+local ok, err = ForeverMultiMonitor.Viewport:Apply({mainhand = {left = 0, right = 1500}, canvasWidth = 3000})
+assert(not ok and string.find(err, "restored"), "failed viewport apply was counted as success")
+assert(#WorldFrame.points == 2 and WorldFrame.points[1][1] == "TOPLEFT" and WorldFrame.points[2][1] == "BOTTOMRIGHT", "viewport failure lost original anchors")
+assert(WorldFrame.userPlaced == true, "failed viewport apply damaged original user-placed state")
+WorldFrame.SetPoint = originalSetPoint
+ForeverMultiMonitor.Viewport:Restore()
+""")
+print("PASS Lua 5.1: injected second-anchor failure rolls back viewport without changing cache state")
+lua.execute("""
+-- An initially anchorless WorldFrame must remain anchorless on restore.
+WorldFrame.points = {}
+local layout = {mainhand = {left = 0, right = 1500}, canvasWidth = 3000}
+assert(ForeverMultiMonitor.Viewport:Apply(layout))
+assert(ForeverMultiMonitor.Viewport:Restore())
+assert(#WorldFrame.points == 0, "anchorless WorldFrame baseline was replaced with synthetic anchors")
+-- Restoration failure must retain the original snapshot and existing cropped geometry.
+WorldFrame.points = {{"TOPLEFT", 0, 0}, {"BOTTOMRIGHT", -100, 0}}
+assert(ForeverMultiMonitor.Viewport:Apply(layout))
+local originalSetPoint = WorldFrame.SetPoint
+local attempts = 0
+WorldFrame.SetPoint = function(self, ...)
+  attempts = attempts + 1
+  if attempts == 1 then error("injected restore anchor failure") end
+  return originalSetPoint(self, ...)
+end
+local ok, message = ForeverMultiMonitor.Viewport:Restore()
+assert(ok == false and string.find(message, "restoration failed"), "failed restore reported success")
+assert(ForeverMultiMonitor.Viewport.originalPoints ~= nil, "failed restore discarded recovery snapshot")
+assert(#WorldFrame.points == 2 and WorldFrame.points[2][2] == -1500, "failed restore did not recover the active viewport")
+WorldFrame.SetPoint = originalSetPoint
+assert(ForeverMultiMonitor.Viewport:Restore(), "retry restore failed")
+assert(#WorldFrame.points == 2 and WorldFrame.points[2][2] == -100, "retry restore lost original viewport")
+""")
+print("PASS Lua 5.1: anchorless baseline and injected restore failure/retry")
+lua.execute("""
+local failing = makeFrame({{"TOPLEFT", UIParent, "TOPLEFT", 25, -40}}, 1.1)
+failing.name = "WorldMapFrame"
+failing.shown = true
+local originalSetPoint = failing.SetPoint
+local report = ForeverMultiMonitor.ReportError
+local lastFailure = nil
+ForeverMultiMonitor.ReportError = function(_, context, reason) lastFailure = context .. ": " .. tostring(reason) end
+local fails = 0
+failing.SetPoint = function(self, ...)
+  fails = fails + 1
+  if fails == 1 then error("injected panel anchor failure") end
+  return originalSetPoint(self, ...)
+end
+local layout = {canvasWidth = 3000, canvasHeight = 900, workspace = {left = 1500, right = 3000, width = 1500, centerX = 750, centerY = 0}}
+local ok = ForeverMultiMonitor.Panels:Place(failing, layout)
+assert(not ok and lastFailure and string.find(lastFailure, "rolled back"), "panel anchor failure was not reported as rolled back")
+assert(#failing.points == 1 and failing.points[1][1] == "TOPLEFT" and failing.scale == 1.1, "panel rollback lost original anchor or scale")
+ForeverMultiMonitor.ReportError = report
+""")
+print("PASS Lua 5.1: injected panel placement failure restores original scale and anchor")
 
 # Exercise current desired state after combat, including recovery timer firing while disabled.
 lua.execute("""
@@ -230,7 +443,7 @@ ForeverMultiMonitor.charDB = { panelPositionSchema = 1, panelPositions = {} }
 ForeverMultiMonitor.GetProfile = function() return {} end
 ForeverMultiMonitor.InitializeConfig = function() end
 ForeverMultiMonitor.Geometry = { Calculate = function() return { canvasWidth=3000, canvasHeight=1000 } end }
-ForeverMultiMonitor.Viewport = { Apply = function() applied = applied + 1 end, Restore = function() restored = restored + 1 end }
+ForeverMultiMonitor.Viewport = { Apply = function() applied = applied + 1; return true end, Restore = function() restored = restored + 1; return true end }
 ForeverMultiMonitor.Panels = { Apply = function() end, RestoreAll = function() panelRestores = panelRestores + 1 end }
 ForeverMultiMonitor.RecordAppliedLayout = function() end
 """)
@@ -254,6 +467,27 @@ ForeverMultiMonitor:FlushPendingWork()
 assert(applied == 1 and restored == 1, "latest enabled state did not win")
 """)
 print("PASS Lua 5.1: combat apply/disable and reset/enable converge on latest state")
+lua.execute("""
+local previousApply = ForeverMultiMonitor.Viewport.Apply
+local previousReport = ForeverMultiMonitor.ReportError
+local previousPanelApply = ForeverMultiMonitor.Panels.Apply
+local previousRawRestore = ForeverMultiMonitor.RawMouse.Restore
+local diagnostics, panelCalls, rawRestores = nil, 0, 0
+ForeverMultiMonitor.Viewport.Apply = function() return false, "injected viewport refusal" end
+ForeverMultiMonitor.ReportError = function(_, context, reason) diagnostics = tostring(context) .. ": " .. tostring(reason) end
+ForeverMultiMonitor.Panels.Apply = function() panelCalls = panelCalls + 1 end
+ForeverMultiMonitor.RawMouse.Restore = function() rawRestores = rawRestores + 1 end
+ForeverMultiMonitor.db.enabled = true
+local applicationSucceeded = ForeverMultiMonitor:Apply()
+assert(applicationSucceeded == false, "public Apply falsely reported success after viewport refusal")
+assert(panelCalls == 0 and rawRestores == 1, "failed viewport was followed by panel routing or left raw mouse on")
+assert(diagnostics and string.find(diagnostics, "injected viewport refusal"), "viewport refusal not diagnosed")
+ForeverMultiMonitor.Viewport.Apply = previousApply
+ForeverMultiMonitor.ReportError = previousReport
+ForeverMultiMonitor.Panels.Apply = previousPanelApply
+ForeverMultiMonitor.RawMouse.Restore = previousRawRestore
+""")
+print("PASS Lua 5.1: false viewport result stops panel routing and restores input state")
 
 lua.execute("C_Timer = { After = function(delay, callback) recoveryDelay = delay; recoveryCallback = callback end }")
 lua.execute((ROOT / "Core" / "Recovery.lua").read_text(encoding="utf-8-sig"), "ForeverMultiMonitor", addon)

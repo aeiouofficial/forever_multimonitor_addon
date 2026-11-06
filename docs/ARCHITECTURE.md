@@ -9,7 +9,7 @@ The companion-free implementation has two separate components:
 - **Lua addon:** logical Mainhand/Offhand viewport, supported panel routing, configuration, persistence and recovery.
 - **Windows helper:** display enumeration and explicit one-shot native window placement/restoration. It is a standalone executable; no service, autostart, resident monitor or Companion protocol is used.
 
-The helper makes the game window cover the selected display bounds. The addon then consumes the resulting combined logical `UIParent` canvas. No direct helper-to-addon protocol currently exists.
+The helper makes the game window cover the selected display bounds. The addon then consumes the resulting combined logical `UIParent` canvas. Optional versioned data-only `RuntimeGeometry.lua` handoff is written to a selected addon directory by the helper and validated after `/reload`. There is no resident interprocess protocol.
 
 ## Addon modules
 
@@ -18,10 +18,12 @@ The helper makes the game window cover the selected display bounds. The addon th
 - `Config.lua`: account defaults, named profile migration/create/load/delete, profile validation and per-character position schema migration.
 - `RawMouse.lua`: save/enable/restore of the user's `rawMouseEnable` CVar.
 - `Geometry.lua`: logical canvas and Mainhand/Offhand rectangles.
-- `Viewport.lua`: WorldFrame anchor capture, apply and restore.
+- `RuntimeGeometry.lua` / `NativeGeometry.lua`: optional monitor handoff and checked two-display calibration.
+- `MapEscape.lua`: reversible default World Map Escape-list state.
+- `Viewport.lua`: WorldFrame anchors + layout-cache flag capture, transactional crop with rollback on partial anchor failure, and restoration. Failed viewport application prevents downstream panel routing in `Init.lua`.
 - `PanelRegistry.lua`: supported frame names, one owner per family, protected-HUD/replacement-bag exclusions.
-- `PanelControllers.lua`: explicit family dispatch; actual family-specific lifecycle behavior remains incomplete.
-- `Panels.lua`: discovery hooks, in-session anchor/scale snapshots, per-character normalized drag-position persistence and restoration.
+- `PanelControllers.lua`: family dispatch and nonoverlapping default-bag grid; other family adapters incomplete.
+- `Panels.lua`: discovery and anchor snapshots, Offhand-clamped positions, bounded bag reflow, Edit Mode pause/recovery.
 - `Recovery.lua`: debounced login, world-entry and display/UI-scale recovery.
 - `Commands.lua`: slash-command interface, including `/fmm config`.
 - `Options.lua`: in-game dashboard, per-profile Midnight/Indigo/Classic theme presets and opacity, named profiles, three-step setup wizard, reversible preview and diagnostic integration.
@@ -59,4 +61,4 @@ The manifest targets `Interface: 16001` and declares `AllowLoadGameType: camelot
 - `WindowsHelper/build.ps1`: Windows helper build.
 - `WindowsHelper.exe list`: local Windows display enumeration.
 
-These checks do not prove secure-frame taint safety, real panel behavior or native WoW window placement. The in-client and live-window matrices remain release gates.
+These checks do not prove secure-frame taint safety or real panel behavior. A live WoW native HWND placement/restoration roundtrip passed on 2026-11-06, but mixed-DPI UI alignment and physical hotplug remain unverified. The in-client release matrix remains a shipping gate. Detailed failure paths and mitigations: [AUDIT_2026-11-06.md](AUDIT_2026-11-06.md).
