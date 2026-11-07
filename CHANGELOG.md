@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Updated the public guides to use the Forever MultiMonitor name and show the current setup and command paths.
+- Repositioned the profile-name field and actions below the monitor controls so the dashboard rows do not collide.
 
 ## 0.4.1 - 2026-11-06
 
